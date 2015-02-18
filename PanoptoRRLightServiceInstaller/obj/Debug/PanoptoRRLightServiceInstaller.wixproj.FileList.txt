@@ -1,0 +1,7 @@
+C:\Users\plancaster\Documents\Visual Studio 2012\Projects\WindowsService2\WindowsServiceSetup4\bin\Debug\cab1.cab
+C:\Users\plancaster\Documents\Visual Studio 2012\Projects\WindowsService2\WindowsServiceSetup4\bin\Debug\WindowsServiceSetup4.msi
+C:\Users\plancaster\Documents\Visual Studio 2012\Projects\WindowsService2\WindowsServiceSetup4\bin\Debug\WindowsServiceSetup4.wixpdb
+obj\Debug\Product.wixobj
+obj\Debug\PanoptoRRLightServiceInstaller.wixproj.BindContentsFileListnull.txt
+obj\Debug\PanoptoRRLightServiceInstaller.wixproj.BindOutputsFileListnull.txt
+obj\Debug\PanoptoRRLightServiceInstaller.wixproj.BindBuiltOutputsFileListnull.txt

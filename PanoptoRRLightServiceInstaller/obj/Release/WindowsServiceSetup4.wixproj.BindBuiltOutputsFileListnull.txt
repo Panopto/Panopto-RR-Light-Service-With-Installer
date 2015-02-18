@@ -1,0 +1,3 @@
+C:\Users\plancaster\documents\visual studio 2012\Projects\WindowsService2\WindowsServiceSetup4\bin\Release\cab1.cab
+C:\Users\plancaster\documents\visual studio 2012\Projects\WindowsService2\WindowsServiceSetup4\bin\Release\WindowsServiceSetup4.msi
+C:\Users\plancaster\documents\visual studio 2012\Projects\WindowsService2\WindowsServiceSetup4\bin\Release\WindowsServiceSetup4.wixpdb

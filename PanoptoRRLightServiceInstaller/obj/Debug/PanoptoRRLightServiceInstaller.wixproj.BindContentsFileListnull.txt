@@ -1,0 +1,3 @@
+..\WindowsService2\bin\Release\DelcomDLL.dll
+..\WindowsService2\bin\Release\RemoteREcorderAPI.dll
+..\WindowsService2\bin\Release\RRLightService.exe

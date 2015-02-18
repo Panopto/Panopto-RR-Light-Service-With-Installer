@@ -1,0 +1,2 @@
+..\WindowsService2\bin\Release\DelcomDLL.dll
+..\WindowsService2\bin\Release\WindowsService2.exe

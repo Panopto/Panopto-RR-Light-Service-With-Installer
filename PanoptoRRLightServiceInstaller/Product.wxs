@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Wix xmlns="http://schemas.microsoft.com/wix/2006/wi">
+	<Product Id="*" Name="Panopto RR Light Service" Language="1033" Version="1.0.0.0" Manufacturer="Panopto" UpgradeCode="48dc066c-97cc-4512-8fa3-52bbe195e075">
+		<Package InstallerVersion="200" Compressed="yes" InstallScope="perMachine" />
+
+		<MajorUpgrade DowngradeErrorMessage="A newer version of [ProductName] is already installed." />
+    <Media Id="1" Cabinet="Cab1.cab" EmbedCab="yes" />
+
+		<Feature Id="ProductFeature" Title="Panopto RR Light Service" Level="1">
+			<ComponentGroupRef Id="ProductComponents" />
+		</Feature>
+	</Product>
+
+	<Fragment>
+		<Directory Id="TARGETDIR" Name="SourceDir">
+			<Directory Id="ProgramFilesFolder">
+				<Directory Id="INSTALLFOLDER" Name="Panopto RR Light Service" />
+			</Directory>
+		</Directory>
+	</Fragment>
+
+	<Fragment>
+		<ComponentGroup Id="ProductComponents" Directory="INSTALLFOLDER">
+      <Component Id="RemoteRecorderAPI.dll" Guid="1B9244CE-96F8-4104-B466-28E033C855E1">
+        <File Id="RemoteRecorderAPI.dll" Name="RemoteRecorderAPI.dll" Source="..\PanoptoRRLightService\bin\Release\RemoteRecorderAPI.dll" Vital="yes" KeyPath="no" DiskId="1"/>
+      </Component>
+      <Component Id="DelcomDLL.dll" Guid="4C511B72-823E-4B97-B727-8C5FA2DF8DE5">
+        <File Id="DelcomDLL.dll" Name="DelcomDLL.dll" Source="..\PanoptoRRLightService\bin\Release\DelcomDLL.dll" Vital="yes" KeyPath="no" DiskId="1"/>
+      </Component>
+			<Component Id="ProductComponent" Guid="ACCCBD4F-D927-4F17-A130-BE334FF138B7">      			
+				<File Id="RRLightService.exe" Name="RRLightService.exe" Source="..\PanoptoRRLightService\bin\Release\RRLightService.exe" Vital="yes" KeyPath="yes" DiskId="1"/>
+				<ServiceInstall
+					Id="ServiceInstaller"
+					Type="ownProcess"
+					Vital="yes"
+					Name="Panopto RR Light Service"
+					DisplayName="Panopto RR Light Service"
+					Description="Panopto RR Light Service"
+					Start="auto"
+					Account="LocalSystem"
+					ErrorControl="ignore"
+					Interactive="no"
+              >
+				</ServiceInstall>
+				<ServiceControl Id="StartService" Start="install" Stop="both" Remove="uninstall" Name="Panopto RR Light Service" Wait="yes" />
+			</Component>
+
+		</ComponentGroup>
+	</Fragment>
+</Wix>
