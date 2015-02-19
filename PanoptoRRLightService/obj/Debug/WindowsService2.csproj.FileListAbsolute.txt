@@ -1,1 +1,0 @@
-c:\users\plancaster\documents\visual studio 2012\Projects\WindowsService2\WindowsService2\bin\Debug\WindowsService2.exe.config
