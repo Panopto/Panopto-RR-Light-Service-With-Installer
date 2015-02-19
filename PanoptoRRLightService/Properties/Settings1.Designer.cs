@@ -8,78 +8,99 @@
 // </auto-generated>
 //------------------------------------------------------------------------------
 
-namespace RRLightProgram.Properties {
-    
-    
+namespace RRLightProgram.Properties
+{
+
+
     [global::System.Runtime.CompilerServices.CompilerGeneratedAttribute()]
     [global::System.CodeDom.Compiler.GeneratedCodeAttribute("Microsoft.VisualStudio.Editors.SettingsDesigner.SettingsSingleFileGenerator", "11.0.0.0")]
-    internal sealed partial class Settings : global::System.Configuration.ApplicationSettingsBase {
-        
+    internal sealed partial class Settings : global::System.Configuration.ApplicationSettingsBase
+    {
+
         private static Settings defaultInstance = ((Settings)(global::System.Configuration.ApplicationSettingsBase.Synchronized(new Settings())));
-        
-        public static Settings Default {
-            get {
+
+        public static Settings Default
+        {
+            get
+            {
                 return defaultInstance;
             }
         }
-        
+
         [global::System.Configuration.ApplicationScopedSettingAttribute()]
         [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
         [global::System.Configuration.DefaultSettingValueAttribute("50")]
-        public int LightPollingIntervalMS {
-            get {
+        public int LightPollingIntervalMS
+        {
+            get
+            {
                 return ((int)(this["LightPollingIntervalMS"]));
             }
         }
-        
+
         [global::System.Configuration.ApplicationScopedSettingAttribute()]
         [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
         [global::System.Configuration.DefaultSettingValueAttribute("net.pipe://localhost/PanoptoRemoteRecorder/Controller")]
-        public global::System.Uri ControllerEndpoint {
-            get {
+        public global::System.Uri ControllerEndpoint
+        {
+            get
+            {
                 return ((global::System.Uri)(this["ControllerEndpoint"]));
             }
         }
-        
+
         [global::System.Configuration.ApplicationScopedSettingAttribute()]
         [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
         [global::System.Configuration.DefaultSettingValueAttribute("False")]
-        public bool LightSupportsYellow {
-            get {
+        public bool LightSupportsYellow
+        {
+            get
+            {
                 return ((bool)(this["LightSupportsYellow"]));
             }
         }
-        
+
         [global::System.Configuration.ApplicationScopedSettingAttribute()]
         [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
         [global::System.Configuration.DefaultSettingValueAttribute("100")]
-        public int RecorderPollingIntervalMS {
-            get {
+        public int RecorderPollingIntervalMS
+        {
+            get
+            {
                 return ((int)(this["RecorderPollingIntervalMS"]));
             }
         }
-        
-        [global::System.Configuration.UserScopedSettingAttribute()]
+
+        [global::System.Configuration.ApplicationScopedSettingAttribute()]
         [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
-        [global::System.Configuration.DefaultSettingValueAttribute("300")]
-        public int MinTimeBetweenClicksMilliseconds {
-            get {
-                return ((int)(this["MinTimeBetweenClicksMilliseconds"]));
-            }
-            set {
-                this["MinTimeBetweenClicksMilliseconds"] = value;
+        [global::System.Configuration.DefaultSettingValueAttribute("00:00:05")]
+        public global::System.TimeSpan HoldDuration
+        {
+            get
+            {
+                return ((global::System.TimeSpan)(this["HoldDuration"]));
             }
         }
-        
-        [global::System.Configuration.UserScopedSettingAttribute()]
+
+        [global::System.Configuration.ApplicationScopedSettingAttribute()]
         [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
-        [global::System.Configuration.DefaultSettingValueAttribute("5")]
-        public int HoldDuration {
-            get {
-                return ((int)(this["HoldDuration"]));
+        [global::System.Configuration.DefaultSettingValueAttribute("300")]
+        public int MintimeBetweenClicksMilliseconds
+        {
+            get
+            {
+                return ((int)(this["MintimeBetweenClicksMilliseconds"]));
             }
-            set {
-                this["HoldDuration"] = value;
+        }
+
+        [global::System.Configuration.ApplicationScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("00:00:00.3000000")]
+        public global::System.TimeSpan PressDuration
+        {
+            get
+            {
+                return ((global::System.TimeSpan)(this["PressDuration"]));
             }
         }
     }

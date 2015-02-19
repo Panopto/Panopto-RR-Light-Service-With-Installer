@@ -47,8 +47,11 @@ namespace CS_NET_DLL
 }
 */
 
-using System.Runtime.InteropServices;
+
+
+using System;
 using System.Text;
+using System.Runtime.InteropServices;
 
 public class Delcom
 {

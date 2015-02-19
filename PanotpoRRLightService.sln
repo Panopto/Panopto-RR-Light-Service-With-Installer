@@ -4,6 +4,9 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "RRLightService", "PanoptoRRLightService\RRLightService.csproj", "{8C3D798C-B52C-4BF8-BB92-09D39BB4C20C}"
 EndProject
 Project("{930C7802-8A8C-48F9-8165-68863BCCD9DD}") = "PanoptoRRLightServiceInstaller", "PanoptoRRLightServiceInstaller\PanoptoRRLightServiceInstaller.wixproj", "{39F23985-023C-472E-A1D1-9D5908C14358}"
+	ProjectSection(ProjectDependencies) = postProject
+		{8C3D798C-B52C-4BF8-BB92-09D39BB4C20C} = {8C3D798C-B52C-4BF8-BB92-09D39BB4C20C}
+	EndProjectSection
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

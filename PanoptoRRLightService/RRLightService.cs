@@ -1,4 +1,7 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
+using System.Diagnostics;
+using System.Globalization;
 using System.Linq;
 using System.Net;
 using System.Security.Cryptography.X509Certificates;
@@ -17,6 +20,14 @@ namespace RRLightProgram
         public RRLightService()
         {
             InitializeComponent();
+        }
+
+        /// <summary>
+        ///     Manually run the service to support console debugging
+        /// </summary>
+        public void ManualRun()
+        {
+            this.OnStart(null);
         }
 
         protected override void OnStart(string[] args)
@@ -70,7 +81,7 @@ namespace RRLightProgram
         private Queue<StateMachine.StateMachineInputArgs> stateMachineInputQueue = new Queue<StateMachine.StateMachineInputArgs>();
 
         //Initialize threshold for button hold from settings to pass into light.
-        private int ButtonHoldDuration = RRLightProgram.Properties.Settings.Default.HoldDuration;
+        
 
         // Delegate for the light and the RR to callback to add statemachine input to the queue (in a threadsafe manner)
         public delegate void EnqueueStateMachineInput(StateMachine.StateMachineInputArgs input);
@@ -81,7 +92,9 @@ namespace RRLightProgram
         public void Main()
         {
             //Create new DelcomLight object and start it's thread to listen for input from the button
-            DelcomLight dLight = new DelcomLight(new EnqueueStateMachineInput(this.AddInputToStateMachineQueue), ButtonHoldDuration);
+            DelcomLight dLight = new DelcomLight(new EnqueueStateMachineInput(this.AddInputToStateMachineQueue),
+                                       RRLightProgram.Properties.Settings.Default.HoldDuration,
+                                       RRLightProgram.Properties.Settings.Default.PressDuration);
 
             //Create new remote recorder sync object to poll recorder state and input changes into state machine
             RemoteRecorderSync rSync = new RemoteRecorderSync(new EnqueueStateMachineInput(this.AddInputToStateMachineQueue));
@@ -108,6 +121,11 @@ namespace RRLightProgram
 
                 if (argsToProcess != null)
                 {
+#if true // debugging output
+                    Debug.Write("Processing input: ");
+                    Debug.WriteLine(argsToProcess.Input.ToString() + " " + DateTime.UtcNow.ToString("HH:mm:ss.fff",
+                                            CultureInfo.InvariantCulture));
+#endif
                     // send the input to the state machine
                     sm.ProcessStateMachineInput(argsToProcess);
                 }
@@ -121,6 +139,11 @@ namespace RRLightProgram
 
         private void AddInputToStateMachineQueue(StateMachine.StateMachineInputArgs input)
         {
+#if true // debugging output
+            Debug.Write("Detected input: ");
+            Debug.WriteLine(input.Input.ToString() + " " + DateTime.UtcNow.ToString("HH:mm:ss.fff",
+                                    CultureInfo.InvariantCulture));
+#endif
             lock (stateMachineInputQueue)
             {
                 stateMachineInputQueue.Enqueue(input);

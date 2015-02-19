@@ -1,8 +1,15 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.ComponentModel;
+using System.Linq;
+using System.Text;
 using System.Threading;
+using System.Threading.Tasks;
 
+using LightService = RRLightProgram.Program;
 using ButtonState = RRLightProgram.DelcomLightWrapper.ButtonState;
+using System.Diagnostics;
+
 
 namespace RRLightProgram
 {
@@ -21,16 +28,18 @@ namespace RRLightProgram
         private int changeColorRequestId = 0;
         private bool shouldStop = false;
         private TimeSpan holdThreshold;
-        private TimeSpan minTimeBetweenClicks = TimeSpan.FromMilliseconds(RRLightProgram.Properties.Settings.Default.MinTimeBetweenClicksMilliseconds);
-
+        private TimeSpan pressThreshold;
+        TimeSpan minTimeBetweenClicks = TimeSpan.FromMilliseconds(RRLightProgram.Properties.Settings.Default.MintimeBetweenClicksMilliseconds);
         /// <summary>
         ///     Constructor
         /// </summary>
         /// <param name="stateMachineInputCallback">delegate to call when there's an event to report</param>
-        public DelcomLight(MainAppLogic.EnqueueStateMachineInput stateMachineInputCallback, int holdTime)
+        public DelcomLight(MainAppLogic.EnqueueStateMachineInput stateMachineInputCallback, TimeSpan holdTime, TimeSpan pressThreshold)
         {
             // Initialize the light wrapper
             hUSB = DelcomLightWrapper.OpenDelcomDevice();
+
+            Delcom.DelcomEnableAutoConfirm(hUSB, 0);
             // Make sure we always start turned off
             DelcomLightWrapper.DelcomLEDOffAction(hUSB);
 
@@ -38,13 +47,15 @@ namespace RRLightProgram
             this.stateMachineInputCallback = stateMachineInputCallback;
 
             //Initialize hold threshold from argument passed from Main
-            this.holdThreshold = TimeSpan.FromSeconds(holdTime);
+            this.holdThreshold = holdTime;
+            this.pressThreshold = pressThreshold;
 
             // start a background thread to poll the device for input
             BackgroundWorker bgw1 = new BackgroundWorker();
             bgw1.DoWork += delegate { this.BackgroundPollingWorker(); };
             bgw1.RunWorkerAsync();
         }
+
 
         /// <summary>
         ///     Change the color of the light
@@ -166,6 +177,7 @@ namespace RRLightProgram
 
                             if (iterationsSinceLastButtonRelease > buttonReleaseTolerance)
                             {
+
                                 // Only remember the currentstate as changed if we're outside of our tolerance
                                 currentState = newState;
 
@@ -177,14 +189,23 @@ namespace RRLightProgram
                                 StateMachine.StateMachineInputArgs buttonUpArgs = new StateMachine.StateMachineInputArgs(StateMachine.StateMachineInput.ButtonUp);
                                 stateMachineInputCallback(buttonUpArgs);
 
+                                TimeSpan pressDuration = DateTime.UtcNow - lastButtonDownTime;
+
                                 //If a button held event was already fired, we don't want to fire a button pressed event in this case
                                 if (!buttonHeld)
                                 {
-                                    // Notify that we've had a button press
-                                    if (stateMachineInputCallback != null)
+                                    if (pressDuration > pressThreshold)
                                     {
-                                        StateMachine.StateMachineInputArgs buttonArgs = new StateMachine.StateMachineInputArgs(StateMachine.StateMachineInput.ButtonPressed);
-                                        stateMachineInputCallback(buttonArgs);
+                                        // Notify that we've had a button press
+                                        if (stateMachineInputCallback != null)
+                                        {
+                                            StateMachine.StateMachineInputArgs buttonArgs = new StateMachine.StateMachineInputArgs(StateMachine.StateMachineInput.ButtonPressed);
+                                            stateMachineInputCallback(buttonArgs);
+                                        }
+                                    }
+                                    else
+                                    {
+                                        Debug.WriteLine("Skipping button press of insufficient duration: {0}", pressDuration);
                                     }
                                 }
 
@@ -211,12 +232,16 @@ namespace RRLightProgram
 
                             //Update current state
                             currentState = newState;
+
+
                         }
                     }
                     else if (newState == ButtonState.Pressed)
                     {
+
                         //Button has been held, check if hold is greater than threshold
                         holdDuration = DateTime.UtcNow - lastButtonDownTime;
+
 
                         //If button held event has already been fired, we don't want to fire again until the button has been released
                         if (!buttonHeld)
@@ -275,3 +300,4 @@ namespace RRLightProgram
         }
     }
 }
+
