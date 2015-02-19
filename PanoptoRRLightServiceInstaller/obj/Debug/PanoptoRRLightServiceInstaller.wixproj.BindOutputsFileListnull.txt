@@ -1,3 +1,0 @@
-C:\Users\plancaster\documents\visual studio 2012\Projects\WindowsService2\WindowsServiceSetup4\bin\Debug\cab1.cab
-C:\Users\plancaster\documents\visual studio 2012\Projects\WindowsService2\WindowsServiceSetup4\bin\Debug\WindowsServiceSetup4.msi
-C:\Users\plancaster\documents\visual studio 2012\Projects\WindowsService2\WindowsServiceSetup4\bin\Debug\WindowsServiceSetup4.wixpdb
