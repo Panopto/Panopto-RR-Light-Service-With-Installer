@@ -4,9 +4,11 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
-
+using System.Threading;
+	
 namespace RRLightProgram
 {
+
     // Abbreviations used in the transition table to make the code more readable
     using RRS = StateMachine.RRState;
 
@@ -211,8 +213,15 @@ namespace RRLightProgram
         {
             control.light.ChangeColor(DelcomColor.Yellow, false, null);
 
-            control.rrSync.StopCurrentRecording();
-            return true;
+            bool stopRecording = control.rrSync.StopCurrentRecording();
+            if (stopRecording == false)
+            {
+                //If we can't stop the recording, flash red for 2 seconds and change light back to paused color before returning false
+                control.light.ChangeColor(DelcomColor.Red, false, TimeSpan.FromMilliseconds(2000));
+                Thread.Sleep(2000);
+                control.light.ChangeColor(DelcomColor.Yellow);
+            }
+            return stopRecording;
         }
 
         private static bool ActionRRStoppingRecording(
@@ -223,8 +232,15 @@ namespace RRLightProgram
         {
             control.light.ChangeColor(DelcomColor.Green, false, null);
 
-            control.rrSync.StopCurrentRecording();
-            return true;
+            bool stopRecording = control.rrSync.StopCurrentRecording();
+            if (stopRecording == false)
+            {
+                //If we can't stop the recording, flash red for 2 seconds and set light back to recording color before returning false
+                control.light.ChangeColor(DelcomColor.Red, false, TimeSpan.FromMilliseconds(2000));
+                Thread.Sleep(2000);
+                control.light.ChangeColor(DelcomColor.Green);
+            }
+            return stopRecording;
         }
 
         //Resume recorder after pause and turn green light on
@@ -235,9 +251,15 @@ namespace RRLightProgram
             )
         {
             control.light.ChangeColor(DelcomColor.Green, false, null);
-            control.rrSync.ResumeCurrentRecording();
-
-            return true;
+            bool resumeRecording = control.rrSync.ResumeCurrentRecording();
+            if (resumeRecording == false)
+            {
+                //If we can't resume the recording, flash red for 2 seconds and set light back to paused color before returning false
+                control.light.ChangeColor(DelcomColor.Red, false, TimeSpan.FromMilliseconds(2000));
+                Thread.Sleep(2000);
+                control.light.ChangeColor(DelcomColor.Yellow);
+            }
+            return resumeRecording;
         }
 
         //Pause recorder and turn blue light on
@@ -248,9 +270,16 @@ namespace RRLightProgram
             )
         {
             control.light.ChangeColor(DelcomColor.Yellow, false, null);
-            control.rrSync.PauseCurrentRecording();
-
-            return true;
+            
+            bool pauseRecording = control.rrSync.PauseCurrentRecording();
+            if (pauseRecording == false)
+            {
+                //If we can't pause the recording, flash red for 2 seconds  and set light back to off before returning false
+                control.light.ChangeColor(DelcomColor.Red, false, TimeSpan.FromMilliseconds(2000));
+                Thread.Sleep(2000);
+                control.light.ChangeColor(DelcomColor.Off);
+            }
+            return pauseRecording;
         }
 
         //Pause recorder and turn blue light on
@@ -285,9 +314,16 @@ namespace RRLightProgram
             )
         {
             control.light.ChangeColor(DelcomColor.Green, false, null);
-            control.rrSync.StartNextRecording();
-
-            return true;
+            
+            bool startNext = control.rrSync.StartNextRecording();
+            if (startNext == false)
+            {
+                //If we can't start the next recording, flash red for 2 seconds then return the light to off before returning false
+                control.light.ChangeColor(DelcomColor.Red, false, TimeSpan.FromMilliseconds(2000));
+                Thread.Sleep(2000);
+                control.light.ChangeColor(DelcomColor.Off);
+            }
+            return startNext;
         }
 
         //Turn light off for preview
@@ -397,6 +433,8 @@ namespace RRLightProgram
                     input = m_stateMachineInputQueue.Dequeue();
                 }
                 else input = inputArgs;
+
+
                 while (input != null)
                 {
                     Transition transition = m_transitionTable[(int)m_SMState,
@@ -423,6 +461,7 @@ namespace RRLightProgram
                             m_SMState = newState;
                         }
                     }
+
                     m_lastStateMachineInput = input.Input;
                     if ((m_stateMachineInputQueue != null) &&
                         (m_stateMachineInputQueue.Count > 0))
