@@ -36,8 +36,7 @@ namespace RRLightProgram
         /// <param name="stateMachineInputCallback">delegate to call when there's an event to report</param>
         public DelcomLight(MainAppLogic.EnqueueStateMachineInput stateMachineInputCallback, TimeSpan holdTime, TimeSpan pressThreshold)
         {
-            // Initialize the light wrapper
-            hUSB = DelcomLightWrapper.OpenDelcomDevice();
+            TryOpeningDelcomDevice();
 
             Delcom.DelcomEnableAutoConfirm(hUSB, 0);
             // Make sure we always start turned off
@@ -134,6 +133,7 @@ namespace RRLightProgram
         public void Stop()
         {
             this.shouldStop = true;
+            DelcomLightWrapper.CloseDelcomDevice(hUSB);
         }
 
         /// <summary>
@@ -156,6 +156,16 @@ namespace RRLightProgram
             // Loop endlessly until we're asked to stop
             while (!this.shouldStop)
             {
+                //Check if light is still connected
+                bool isStillConnected = DelcomLightWrapper.isButtonConnected(hUSB);
+
+                //If not still connected, start loop to poll for connection until it is connected.
+                if (!isStillConnected)
+                {
+                    DelcomLightWrapper.CloseDelcomDevice(hUSB);
+                    TryOpeningDelcomDevice();
+                }
+
                 if ((DateTime.UtcNow - lastButtonUpTime) > minTimeBetweenClicks)
                 {
                     // Get the current state of the button
@@ -298,6 +308,28 @@ namespace RRLightProgram
 
             return result;
         }
+
+        /// <summary>
+        /// Loop that attempts to open a device connection until one is connected. Replaces old
+        /// device id with new one.
+        /// </summary>
+        private void TryOpeningDelcomDevice()
+        {
+            // Initialize the light wrapper
+            bool deviceOpened = false;
+            while (deviceOpened == false)
+            {
+                hUSB = DelcomLightWrapper.OpenDelcomDevice();
+                if (hUSB == 0)
+                {
+                    //If no light found, wait for a second and then try to open again.
+                    Thread.Sleep(1000);
+                }
+                else
+                {
+                    deviceOpened = true;
+                }
+            }
+        }
     }
 }
-

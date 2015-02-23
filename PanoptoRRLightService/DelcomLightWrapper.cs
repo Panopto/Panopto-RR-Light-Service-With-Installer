@@ -76,5 +76,23 @@ namespace RRLightProgram
         {
             return (ButtonState)Delcom.DelcomGetButtonStatus(hUSB);
         }
+
+        /// <summary>
+        /// Method used to determine whether a specific device is still connected
+        /// </summary>
+        /// <param name="hUSB"></param>
+        /// <returns></returns>
+        public static bool isButtonConnected(uint hUSB)
+        {
+            int deviceVersion = Delcom.DelcomReadDeviceVersion(hUSB);
+            
+            //If no longer connected we will get a return value of 0 or 255 (manual says 0 but in practice we get 255)
+            if (deviceVersion == 0 || deviceVersion == 255)
+            {
+                return false;
+            }
+
+            return true;
+        }
     }
 }
