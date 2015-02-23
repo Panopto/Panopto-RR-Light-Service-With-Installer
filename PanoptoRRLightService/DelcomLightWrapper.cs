@@ -1,4 +1,5 @@
 ﻿using System.Text;
+using System.Threading;
 
 namespace RRLightProgram
 {
@@ -94,5 +95,34 @@ namespace RRLightProgram
 
             return true;
         }
+
+        /// <summary>
+        /// Loop that attempts to open a device connection until one is connected. Replaces old
+        /// device id with new one.
+        /// </summary>
+        public static uint TryOpeningDelcomDevice()
+        {
+            // Initialize the light wrapper
+            uint hUSB = 0;
+            bool deviceOpened = false;
+            
+            //While no light has been found, wait for a connection
+            while (deviceOpened == false)
+            {
+                hUSB = DelcomLightWrapper.OpenDelcomDevice();
+                if (hUSB == 0)
+                {
+                    //If no light found, wait for a second and then try to open again.
+                    Thread.Sleep(1000);
+                }
+                else
+                {
+                    deviceOpened = true;
+                }
+            }            
+            
+            return hUSB;
+        }
+
     }
 }
