@@ -334,7 +334,6 @@ namespace RRLightProgram
             )
         {
             control.light.ChangeColor(DelcomColor.Off);
-
             return true;
         }
 
@@ -346,7 +345,6 @@ namespace RRLightProgram
             )
         {
             control.light.ChangeColor(DelcomColor.Red);
-
             return true;
         }
 
@@ -358,7 +356,6 @@ namespace RRLightProgram
             )
         {
             control.light.ChangeColor(DelcomColor.Off);
-
             return true;
         }
 
@@ -370,7 +367,6 @@ namespace RRLightProgram
             )
         {
             control.light.ChangeColor(DelcomColor.Red);
-
             return true;
         }
 
@@ -382,7 +378,6 @@ namespace RRLightProgram
             )
         {
             control.light.ChangeColor(DelcomColor.Off);
-
             return true;
         }
 
@@ -394,7 +389,6 @@ namespace RRLightProgram
             )
         {
             control.light.ChangeColor(DelcomColor.Off);
-
             return true;
         }
 
@@ -437,6 +431,7 @@ namespace RRLightProgram
 
                 while (input != null)
                 {
+
                     Transition transition = m_transitionTable[(int)m_SMState,
                                                               (int)input.Input];
 #if s_debugoutput
