@@ -1,6 +1,7 @@
 ﻿using Panopto.RemoteRecorderAPI.V1;
 using System;
 using System.ComponentModel;
+using System.Diagnostics;
 using System.ServiceModel;
 using System.Threading;
 
@@ -64,8 +65,11 @@ namespace RRLightProgram
             {
                 // Log and continue
 
-                //TODO Log
-                Console.WriteLine("Error calling remote recorder process: {0}", e);
+                if (Program.RunFromConsole)
+                {
+                    Trace.TraceInformation(DateTime.Now + ": Error calling remote recorder process: {0}", e);
+                    Trace.Flush();
+                }
             }
 
             return result;
@@ -91,9 +95,12 @@ namespace RRLightProgram
             catch (Exception e)
             {
                 // Log and continue
+                if (Program.RunFromConsole)
+                {
+                    Trace.TraceInformation(DateTime.Now + ": Error calling remote recorder process: {0}", e);
+                    Trace.Flush();
+                }
 
-                //TODO Log
-                Console.WriteLine("Error calling remote recorder process: {0}", e);
             }
 
             return result;
@@ -120,8 +127,11 @@ namespace RRLightProgram
             {
                 // Log and continue
 
-                //TODO Log
-                Console.WriteLine("Error calling remote recorder process: {0}", e);
+                if (Program.RunFromConsole)
+                {
+                    Trace.TraceInformation(DateTime.Now + ": Error calling remote recorder process: {0}", e);
+                    Trace.Flush();
+                }
             }
 
             return result;
@@ -151,8 +161,12 @@ namespace RRLightProgram
             {
                 // Log and continue
 
-                //TODO Log
-                Console.WriteLine("Error calling remote recorder process: {0}", e);
+                if (Program.RunFromConsole)
+                {
+                    Trace.TraceInformation(DateTime.Now + ": Error calling remote recorder process: {0}", e);
+                    Trace.Flush();
+                }
+
             }
 
             return result;
@@ -179,8 +193,11 @@ namespace RRLightProgram
             {
                 // Log and continue
 
-                //TODO Log
-                Console.WriteLine("Error calling remote recorder process: {0}", e);
+                if (Program.RunFromConsole)
+                {
+                    Trace.TraceInformation(DateTime.Now + ": Error calling remote recorder process: {0}", e);
+                    Trace.Flush();
+                }
             }
 
             return result;
@@ -229,8 +246,11 @@ namespace RRLightProgram
                     {
                         // Log and continue, could be a temporary problem
 
-                        //TODO Log
-                        Console.WriteLine("Error calling remote recorder process: {0}", e);
+                        if (Program.RunFromConsole)
+                        {
+                            Trace.TraceInformation(DateTime.Now + ": Error calling remote recorder process: {0}", e);
+                            Trace.Flush();
+                        }
                     }
 
                     // Sleep for a moment before polling again to avoid spinlock

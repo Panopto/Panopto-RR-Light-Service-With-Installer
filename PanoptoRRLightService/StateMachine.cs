@@ -5,7 +5,7 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Threading;
-	
+
 namespace RRLightProgram
 {
 
@@ -189,7 +189,7 @@ namespace RRLightProgram
             StateMachineInputArgs inputArgs
             )
         {
-            Debug.Fail(String.Format("State machine reached an error transition: {0} {1}.", currentState, inputArgs.Input));
+            Trace.Fail(String.Format("State machine reached an error transition: {0} {1}.", currentState, inputArgs.Input));
             throw new NotSupportedException(String.Format("State machine reached an error transition: {0} {1}.", currentState, inputArgs));
         }
 
@@ -270,7 +270,7 @@ namespace RRLightProgram
             )
         {
             control.light.ChangeColor(DelcomColor.Yellow, false, null);
-            
+
             bool pauseRecording = control.rrSync.PauseCurrentRecording();
             if (pauseRecording == false)
             {
@@ -314,7 +314,7 @@ namespace RRLightProgram
             )
         {
             control.light.ChangeColor(DelcomColor.Green, false, null);
-            
+
             bool startNext = control.rrSync.StartNextRecording();
             if (startNext == false)
             {
@@ -420,10 +420,12 @@ namespace RRLightProgram
             }
             else
             {
-#if s_debugoutput
-                Debug.WriteLine("SM State:" + m_SMState.ToString());
-                Debug.WriteLine("SM Input:" + inputArgs.StateMachineInput.ToString());
-#endif
+                if (Program.RunFromConsole)
+                {
+                    Trace.TraceInformation(DateTime.Now + ": SM State:" + m_SMState.ToString());
+                    Trace.TraceInformation(DateTime.Now + ": SM Input:" + inputArgs.Input.ToString());
+                    Trace.Flush();
+                }
 
                 m_processingEvent = true;
                 StateMachineInputArgs input = null;
@@ -439,11 +441,13 @@ namespace RRLightProgram
                 {
                     Transition transition = m_transitionTable[(int)m_SMState,
                                                               (int)input.Input];
-#if s_debugoutput
-                    Debug.Assert(transition.currentState == m_SMState);
-                    Debug.Assert(transition.input == input.StateMachineInput);
-                    Debug.Assert(transition.actionId < ActionId.LAST);
-#endif
+                    if (Program.RunFromConsole)
+                    {
+                        Trace.Assert(transition.currentState == m_SMState);
+                        Trace.Assert(transition.input == input.Input);
+                        Trace.Assert(transition.actionId < ActionId.LAST);
+                    }
+
                     StateMachineAction action = m_actionTable[(int)transition.actionId];
                     bool actionSucceeded = true;
                     if (action != null)
@@ -475,9 +479,11 @@ namespace RRLightProgram
                 }
                 m_processingEvent = false;
 
-#if s_debugoutput
-                Debug.WriteLine("SM NewState:" + m_SMState.ToString());
-#endif
+                if (Program.RunFromConsole)
+                {
+                    Trace.TraceInformation(DateTime.Now + ": SM NewState:" + m_SMState.ToString());
+                    Trace.Flush();
+                }
             }
         }
 

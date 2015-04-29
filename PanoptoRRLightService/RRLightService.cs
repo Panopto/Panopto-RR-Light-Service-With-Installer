@@ -81,7 +81,7 @@ namespace RRLightProgram
         private Queue<StateMachine.StateMachineInputArgs> stateMachineInputQueue = new Queue<StateMachine.StateMachineInputArgs>();
 
         //Initialize threshold for button hold from settings to pass into light.
-        
+
 
         // Delegate for the light and the RR to callback to add statemachine input to the queue (in a threadsafe manner)
         public delegate void EnqueueStateMachineInput(StateMachine.StateMachineInputArgs input);
@@ -121,11 +121,14 @@ namespace RRLightProgram
 
                 if (argsToProcess != null)
                 {
-#if true // debugging output
-                    Debug.Write("Processing input: ");
-                    Debug.WriteLine(argsToProcess.Input.ToString() + " " + DateTime.UtcNow.ToString("HH:mm:ss.fff",
-                                            CultureInfo.InvariantCulture));
-#endif
+                    if (Program.RunFromConsole)
+                    {
+                        Trace.TraceInformation(DateTime.Now + ": Processing input: ");
+                        Trace.TraceInformation(DateTime.Now + ": " + argsToProcess.Input.ToString() + " " +
+                                               DateTime.UtcNow.ToString("HH:mm:ss.fff", CultureInfo.InvariantCulture));
+                        Trace.Flush();
+                    }
+
                     // send the input to the state machine
                     sm.ProcessStateMachineInput(argsToProcess);
                 }
@@ -139,11 +142,13 @@ namespace RRLightProgram
 
         private void AddInputToStateMachineQueue(StateMachine.StateMachineInputArgs input)
         {
-#if true // debugging output
-            Debug.Write("Detected input: ");
-            Debug.WriteLine(input.Input.ToString() + " " + DateTime.UtcNow.ToString("HH:mm:ss.fff",
-                                    CultureInfo.InvariantCulture));
-#endif
+            if (Program.RunFromConsole)
+            {
+                Trace.TraceInformation(DateTime.Now + ": Detected input: ");
+                Trace.TraceInformation(DateTime.Now + ": " + input.Input.ToString() + " " + DateTime.UtcNow.ToString("HH:mm:ss.fff", CultureInfo.InvariantCulture));
+                Trace.Flush();
+            }
+
             lock (stateMachineInputQueue)
             {
                 stateMachineInputQueue.Enqueue(input);

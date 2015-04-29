@@ -215,7 +215,12 @@ namespace RRLightProgram
                                     }
                                     else
                                     {
-                                        Debug.WriteLine("Skipping button press of insufficient duration: {0}", pressDuration);
+                                        if (Program.RunFromConsole)
+                                        {
+                                            Trace.TraceInformation(
+                                                DateTime.Now + ": Skipping button press of insufficient duration: {0}",
+                                                pressDuration);
+                                        }
                                     }
                                 }
 
@@ -308,6 +313,6 @@ namespace RRLightProgram
 
             return result;
         }
-		
+
     }
 }
