@@ -123,8 +123,8 @@ namespace RRLightProgram
                 {
                     if (Program.RunFromConsole)
                     {
-                        Trace.TraceInformation("Processing input: ");
-                        Trace.TraceInformation(argsToProcess.Input.ToString() + " " +
+                        Trace.TraceInformation(DateTime.Now + ": Processing input: ");
+                        Trace.TraceInformation(DateTime.Now + ": " + argsToProcess.Input.ToString() + " " +
                                                DateTime.UtcNow.ToString("HH:mm:ss.fff", CultureInfo.InvariantCulture));
                         Trace.Flush();
                     }
@@ -142,11 +142,13 @@ namespace RRLightProgram
 
         private void AddInputToStateMachineQueue(StateMachine.StateMachineInputArgs input)
         {
-#if true // debugging output
-            Trace.TraceInformation("Detected input: ");
-            Trace.TraceInformation(input.Input.ToString() + " " + DateTime.UtcNow.ToString("HH:mm:ss.fff", CultureInfo.InvariantCulture));
-            Trace.Flush();
-#endif
+            if (Program.RunFromConsole)
+            {
+                Trace.TraceInformation(DateTime.Now + ": Detected input: ");
+                Trace.TraceInformation(DateTime.Now + ": " + input.Input.ToString() + " " + DateTime.UtcNow.ToString("HH:mm:ss.fff", CultureInfo.InvariantCulture));
+                Trace.Flush();
+            }
+
             lock (stateMachineInputQueue)
             {
                 stateMachineInputQueue.Enqueue(input);

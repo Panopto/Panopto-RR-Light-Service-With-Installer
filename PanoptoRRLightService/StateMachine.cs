@@ -422,8 +422,8 @@ namespace RRLightProgram
             {
                 if (Program.RunFromConsole)
                 {
-                    Trace.TraceInformation("SM State:" + m_SMState.ToString());
-                    Trace.TraceInformation("SM Input:" + inputArgs.Input.ToString());
+                    Trace.TraceInformation(DateTime.Now + ": SM State:" + m_SMState.ToString());
+                    Trace.TraceInformation(DateTime.Now + ": SM Input:" + inputArgs.Input.ToString());
                     Trace.Flush();
                 }
 
@@ -481,7 +481,7 @@ namespace RRLightProgram
 
                 if (Program.RunFromConsole)
                 {
-                    Trace.TraceInformation("SM NewState:" + m_SMState.ToString());
+                    Trace.TraceInformation(DateTime.Now + ": SM NewState:" + m_SMState.ToString());
                     Trace.Flush();
                 }
             }
