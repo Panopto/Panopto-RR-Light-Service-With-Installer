@@ -5,6 +5,7 @@ namespace RRLightProgram
 {
     internal class DelcomLightWrapper
     {
+        private const int LEDWaitTime = 150;//pretty arbitrary, stops all observed failures and not too noticable a delay
         // NOTE: These must stay in sync with the DelcomDll.*LED values
         public enum LightColors : byte
         {
@@ -52,13 +53,14 @@ namespace RRLightProgram
         public static void DelcomLEDOn(uint hUSB, LightColors color, LightStates action)
         {
             DelcomLEDOffAction(hUSB);
-
+            System.Threading.Thread.Sleep(LEDWaitTime);//the light is not very responsive and cannot handle immediate consecutive requests to the same leds
             Delcom.DelcomLEDControl(hUSB, (byte)color, (byte)action);
         }
 
         public static void DelcomLEDAllOn(uint hUSB, LightStates action)
         {
             DelcomLEDOffAction(hUSB);
+            System.Threading.Thread.Sleep(LEDWaitTime);
             Delcom.DelcomLEDControl(hUSB, Delcom.REDLED, (byte)action);
             Delcom.DelcomLEDControl(hUSB, Delcom.GREENLED, (byte)action);
             Delcom.DelcomLEDControl(hUSB, Delcom.YELLOWLED, (byte)action);
@@ -67,6 +69,7 @@ namespace RRLightProgram
 
         public static void DelcomLEDOffAction(uint hUSB)
         {
+            System.Threading.Thread.Sleep(LEDWaitTime);
             Delcom.DelcomLEDControl(hUSB, Delcom.REDLED, (byte)LightStates.Off);
             Delcom.DelcomLEDControl(hUSB, Delcom.GREENLED, (byte)LightStates.Off);
             Delcom.DelcomLEDControl(hUSB, Delcom.YELLOWLED, (byte)LightStates.Off);
