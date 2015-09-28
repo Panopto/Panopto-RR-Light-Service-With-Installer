@@ -93,8 +93,7 @@ namespace RRLightProgram
         {
             //Create new DelcomLight object and start it's thread to listen for input from the button
             DelcomLight dLight = new DelcomLight(new EnqueueStateMachineInput(this.AddInputToStateMachineQueue),
-                                       RRLightProgram.Properties.Settings.Default.HoldDuration,
-                                       RRLightProgram.Properties.Settings.Default.PressDuration);
+                                       RRLightProgram.Properties.Settings.Default.HoldDuration);
 
             //Create new remote recorder sync object to poll recorder state and input changes into state machine
             RemoteRecorderSync rSync = new RemoteRecorderSync(new EnqueueStateMachineInput(this.AddInputToStateMachineQueue));

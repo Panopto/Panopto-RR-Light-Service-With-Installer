@@ -28,13 +28,12 @@ namespace RRLightProgram
         private int changeColorRequestId = 0;
         private bool shouldStop = false;
         private TimeSpan holdThreshold;
-        private TimeSpan pressThreshold;
         TimeSpan minTimeBetweenClicks = TimeSpan.FromMilliseconds(RRLightProgram.Properties.Settings.Default.MintimeBetweenClicksMilliseconds);
         /// <summary>
         ///     Constructor
         /// </summary>
         /// <param name="stateMachineInputCallback">delegate to call when there's an event to report</param>
-        public DelcomLight(MainAppLogic.EnqueueStateMachineInput stateMachineInputCallback, TimeSpan holdTime, TimeSpan pressThreshold)
+        public DelcomLight(MainAppLogic.EnqueueStateMachineInput stateMachineInputCallback, TimeSpan holdTime)
         {
             hUSB = DelcomLightWrapper.TryOpeningDelcomDevice();
 
@@ -47,7 +46,6 @@ namespace RRLightProgram
 
             //Initialize hold threshold from argument passed from Main
             this.holdThreshold = holdTime;
-            this.pressThreshold = pressThreshold;
 
             // start a background thread to poll the device for input
             BackgroundWorker bgw1 = new BackgroundWorker();
@@ -79,6 +77,7 @@ namespace RRLightProgram
 
                 if (inputColor == DelcomColor.Off)
                 {
+                    // this function returns "false" on failure, but we don't currently check the return value
                     DelcomLightWrapper.DelcomLEDAllAction(this.hUSB, DelcomLightWrapper.LightStates.Off);
                 }
                 else
@@ -89,6 +88,7 @@ namespace RRLightProgram
                     DelcomLightWrapper.LightStates action = steady ? DelcomLightWrapper.LightStates.On
                                                                    : DelcomLightWrapper.LightStates.Flash;
 
+                    // these functions both return "false" on failure, but we don't currently check the return values
                     DelcomLightWrapper.DelcomLEDAllAction(this.hUSB, DelcomLightWrapper.LightStates.Off);
                     DelcomLightWrapper.DelcomLEDAction(this.hUSB, color, action);
 
@@ -111,6 +111,7 @@ namespace RRLightProgram
                             if (currentButtonAction == rememberedButtonAction)
                             {
                                 // Only turn the light off if they still match, otherwise we've moved on to a new action
+                                // (this function returns "false" on failure, but we don't currently check the return value)
                                 DelcomLightWrapper.DelcomLEDAllAction(this.hUSB, DelcomLightWrapper.LightStates.Off);
                             }
                             else
@@ -198,8 +199,11 @@ namespace RRLightProgram
 
                                 //Fire a button up event. This will only cause the state machine to act if in a previewing state with nothing queued.
                                 //It will turn off the red light that is on when the button is being held down in that case
-                                StateMachine.StateMachineInputArgs buttonUpArgs = new StateMachine.StateMachineInputArgs(StateMachine.StateMachineInput.ButtonUp);
-                                stateMachineInputCallback(buttonUpArgs);
+                                if (stateMachineInputCallback != null)
+                                {
+                                    StateMachine.StateMachineInputArgs buttonUpArgs = new StateMachine.StateMachineInputArgs(StateMachine.StateMachineInput.ButtonUp);
+                                    stateMachineInputCallback(buttonUpArgs);
+                                }
 
                                 //If a button held event was already fired, we don't want to fire a button pressed event in this case
                                 if (!buttonHeld)
@@ -236,8 +240,11 @@ namespace RRLightProgram
 
                                 //Fire a button down event. This will only cause the state machine to act if in a previewing state with nothing queued.
                                 //It will turn on the red light that is on when the button is being held down in that case
-                                StateMachine.StateMachineInputArgs buttonArgs = new StateMachine.StateMachineInputArgs(StateMachine.StateMachineInput.ButtonDown);
-                                stateMachineInputCallback(buttonArgs);
+                                if (stateMachineInputCallback != null)
+                                {
+                                    StateMachine.StateMachineInputArgs buttonArgs = new StateMachine.StateMachineInputArgs(StateMachine.StateMachineInput.ButtonDown);
+                                    stateMachineInputCallback(buttonArgs);
+                                }
 
                                 //Set last button down time to current time, as button was just pressed down
                                 lastButtonDownTime = DateTime.UtcNow;
@@ -285,7 +292,10 @@ namespace RRLightProgram
         }
 
         /// <summary>
-        ///     Helper to convert our 'public-facing' color enum to the delcom light
+        ///     Helper to convert our 'public-facing' color enum to the delcom light.
+        ///     Given that DelcomLightWrapper.LightColors.Yellow == DelcomLightWrapper.LightColors.Blue
+        ///     (the byte we send to the light indicating which LED we want to change is the same whether
+        ///     it supports yellow or blue), this makes no difference at present.
         /// </summary>
         /// <param name="inputColor"></param>
         /// <returns></returns>
