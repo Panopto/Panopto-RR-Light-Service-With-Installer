@@ -28,26 +28,24 @@ namespace RRLightProgram
         private int changeColorRequestId = 0;
         private bool shouldStop = false;
         private TimeSpan holdThreshold;
-        private TimeSpan pressThreshold;
         TimeSpan minTimeBetweenClicks = TimeSpan.FromMilliseconds(RRLightProgram.Properties.Settings.Default.MintimeBetweenClicksMilliseconds);
         /// <summary>
         ///     Constructor
         /// </summary>
         /// <param name="stateMachineInputCallback">delegate to call when there's an event to report</param>
-        public DelcomLight(MainAppLogic.EnqueueStateMachineInput stateMachineInputCallback, TimeSpan holdTime, TimeSpan pressThreshold)
+        public DelcomLight(MainAppLogic.EnqueueStateMachineInput stateMachineInputCallback, TimeSpan holdTime)
         {
             hUSB = DelcomLightWrapper.TryOpeningDelcomDevice();
 
             Delcom.DelcomEnableAutoConfirm(hUSB, 0);
             // Make sure we always start turned off
-            DelcomLightWrapper.DelcomLEDOffAction(hUSB);
+            DelcomLightWrapper.DelcomLEDAllAction(hUSB, DelcomLightWrapper.LightStates.Off);
 
             // remember the delegate so we can invoke when we get input
             this.stateMachineInputCallback = stateMachineInputCallback;
 
             //Initialize hold threshold from argument passed from Main
             this.holdThreshold = holdTime;
-            this.pressThreshold = pressThreshold;
 
             // start a background thread to poll the device for input
             BackgroundWorker bgw1 = new BackgroundWorker();
@@ -79,7 +77,8 @@ namespace RRLightProgram
 
                 if (inputColor == DelcomColor.Off)
                 {
-                    DelcomLightWrapper.DelcomLEDOffAction(this.hUSB);
+                    // this function returns "false" on failure, but we don't currently check the return value
+                    DelcomLightWrapper.DelcomLEDAllAction(this.hUSB, DelcomLightWrapper.LightStates.Off);
                 }
                 else
                 {
@@ -89,7 +88,9 @@ namespace RRLightProgram
                     DelcomLightWrapper.LightStates action = steady ? DelcomLightWrapper.LightStates.On
                                                                    : DelcomLightWrapper.LightStates.Flash;
 
-                    DelcomLightWrapper.DelcomLEDOn(this.hUSB, color, action);
+                    // these functions both return "false" on failure, but we don't currently check the return values
+                    DelcomLightWrapper.DelcomLEDAllAction(this.hUSB, DelcomLightWrapper.LightStates.Off);
+                    DelcomLightWrapper.DelcomLEDAction(this.hUSB, color, action);
 
                     // We need to only have the light on for the requested duration
                     if (duration != null)
@@ -110,7 +111,8 @@ namespace RRLightProgram
                             if (currentButtonAction == rememberedButtonAction)
                             {
                                 // Only turn the light off if they still match, otherwise we've moved on to a new action
-                                DelcomLightWrapper.DelcomLEDOffAction(this.hUSB);
+                                // (this function returns "false" on failure, but we don't currently check the return value)
+                                DelcomLightWrapper.DelcomLEDAllAction(this.hUSB, DelcomLightWrapper.LightStates.Off);
                             }
                             else
                             {
@@ -143,7 +145,8 @@ namespace RRLightProgram
         {
             ButtonState currentState = ButtonState.NotPressed;
             int iterationsSinceLastButtonRelease = 0;
-            const int buttonReleaseTolerance = 3; // magic number that works well in practice
+            int iterationsSinceLastButtonDown = 0;
+            const int buttonReleaseTolerance = 2; // magic number that works well in practice
             //Timer to determine how long the button has been held down for
             TimeSpan holdDuration = TimeSpan.Zero;
             //The time when the button was last in a down state. Used for hardware error correction.
@@ -196,31 +199,20 @@ namespace RRLightProgram
 
                                 //Fire a button up event. This will only cause the state machine to act if in a previewing state with nothing queued.
                                 //It will turn off the red light that is on when the button is being held down in that case
-                                StateMachine.StateMachineInputArgs buttonUpArgs = new StateMachine.StateMachineInputArgs(StateMachine.StateMachineInput.ButtonUp);
-                                stateMachineInputCallback(buttonUpArgs);
-
-                                TimeSpan pressDuration = DateTime.UtcNow - lastButtonDownTime;
+                                if (stateMachineInputCallback != null)
+                                {
+                                    StateMachine.StateMachineInputArgs buttonUpArgs = new StateMachine.StateMachineInputArgs(StateMachine.StateMachineInput.ButtonUp);
+                                    stateMachineInputCallback(buttonUpArgs);
+                                }
 
                                 //If a button held event was already fired, we don't want to fire a button pressed event in this case
                                 if (!buttonHeld)
                                 {
-                                    if (pressDuration > pressThreshold)
+                                    // Notify that we've had a button press
+                                    if (stateMachineInputCallback != null)
                                     {
-                                        // Notify that we've had a button press
-                                        if (stateMachineInputCallback != null)
-                                        {
-                                            StateMachine.StateMachineInputArgs buttonArgs = new StateMachine.StateMachineInputArgs(StateMachine.StateMachineInput.ButtonPressed);
-                                            stateMachineInputCallback(buttonArgs);
-                                        }
-                                    }
-                                    else
-                                    {
-                                        if (Program.RunFromConsole)
-                                        {
-                                            Trace.TraceInformation(
-                                                DateTime.Now + ": Skipping button press of insufficient duration: {0}",
-                                                pressDuration);
-                                        }
+                                        StateMachine.StateMachineInputArgs buttonArgs = new StateMachine.StateMachineInputArgs(StateMachine.StateMachineInput.ButtonPressed);
+                                        stateMachineInputCallback(buttonArgs);
                                     }
                                 }
 
@@ -232,21 +224,31 @@ namespace RRLightProgram
                         }
                         else if (newState == ButtonState.Pressed)
                         {
-                            // The button has just been pressed
+                            // We were previously in a pressed state, but the button on the light is flaky, so we need
+                            // to make sure the button has really been released, so we'll wait a few iterations.
+                            iterationsSinceLastButtonDown++;
 
-                            //Fire a button down event. This will only cause the state machine to act if in a previewing state with nothing queued.
-                            //It will turn on the red light that is on when the button is being held down in that case
-                            StateMachine.StateMachineInputArgs buttonArgs = new StateMachine.StateMachineInputArgs(StateMachine.StateMachineInput.ButtonDown);
-                            stateMachineInputCallback(buttonArgs);
+                            if (iterationsSinceLastButtonDown > buttonReleaseTolerance)
+                            {
+                                // The button has just been pressed
 
-                            //Set last button down time to current time, as button was just pressed down
-                            lastButtonDownTime = DateTime.UtcNow;
+                                // Only remember the currentstate as changed if we're outside of our tolerance
+                                currentState = newState;
 
-                            //Reset iterations since last release
-                            iterationsSinceLastButtonRelease = 0;
+                                //Button just pressed so reset timer
+                                iterationsSinceLastButtonRelease = 0;
 
-                            //Update current state
-                            currentState = newState;
+                                //Fire a button down event. This will only cause the state machine to act if in a previewing state with nothing queued.
+                                //It will turn on the red light that is on when the button is being held down in that case
+                                if (stateMachineInputCallback != null)
+                                {
+                                    StateMachine.StateMachineInputArgs buttonArgs = new StateMachine.StateMachineInputArgs(StateMachine.StateMachineInput.ButtonDown);
+                                    stateMachineInputCallback(buttonArgs);
+                                }
+
+                                //Set last button down time to current time, as button was just pressed down
+                                lastButtonDownTime = DateTime.UtcNow;
+                            }
 
 
                         }
@@ -257,6 +259,8 @@ namespace RRLightProgram
                         //Button has been held, check if hold is greater than threshold
                         holdDuration = DateTime.UtcNow - lastButtonDownTime;
 
+                        //Reset iterations since last release
+                        iterationsSinceLastButtonRelease = 0;
 
                         //If button held event has already been fired, we don't want to fire again until the button has been released
                         if (!buttonHeld)
@@ -276,6 +280,11 @@ namespace RRLightProgram
                             }
                         }
                     }
+                    else if (newState == ButtonState.NotPressed)
+                    {
+                        //Reset iterations since last press
+                        iterationsSinceLastButtonDown = 0;
+                    }
                 }
 
                 System.Threading.Thread.Sleep(RRLightProgram.Properties.Settings.Default.LightPollingIntervalMS);
@@ -283,7 +292,10 @@ namespace RRLightProgram
         }
 
         /// <summary>
-        ///     Helper to convert our 'public-facing' color enum to the delcom light
+        ///     Helper to convert our 'public-facing' color enum to the delcom light.
+        ///     Given that DelcomLightWrapper.LightColors.Yellow == DelcomLightWrapper.LightColors.Blue
+        ///     (the byte we send to the light indicating which LED we want to change is the same whether
+        ///     it supports yellow or blue), this makes no difference at present.
         /// </summary>
         /// <param name="inputColor"></param>
         /// <returns></returns>

@@ -92,16 +92,5 @@ namespace RRLightProgram.Properties
                 return ((int)(this["MintimeBetweenClicksMilliseconds"]));
             }
         }
-
-        [global::System.Configuration.ApplicationScopedSettingAttribute()]
-        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
-        [global::System.Configuration.DefaultSettingValueAttribute("00:00:00.3000000")]
-        public global::System.TimeSpan PressDuration
-        {
-            get
-            {
-                return ((global::System.TimeSpan)(this["PressDuration"]));
-            }
-        }
     }
 }

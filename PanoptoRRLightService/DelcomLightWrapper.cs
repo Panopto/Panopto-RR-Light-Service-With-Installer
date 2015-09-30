@@ -1,4 +1,6 @@
-﻿using System.Text;
+﻿using System;
+using System.Collections.Generic;
+using System.Text;
 using System.Threading;
 
 namespace RRLightProgram
@@ -6,6 +8,17 @@ namespace RRLightProgram
     internal class DelcomLightWrapper
     {
         private const int LEDWaitTime = 150;//pretty arbitrary, stops all observed failures and not too noticable a delay
+        private const int LEDMaxFailures = 3;//also somewhat arbitrary; should be adjusted after testing
+
+        // NOTE: These must stay in sync with DelcomDll.*LED values
+        // We only include yellow (not blue) because their byte value is the same
+        private static Dictionary<LightColors, LightStates> CurrentLEDStates = new Dictionary<LightColors, LightStates>
+            {
+                { LightColors.Green, LightStates.Off },
+                { LightColors.Red, LightStates.Off },
+                { LightColors.Yellow, LightStates.Off }
+            };
+
         // NOTE: These must stay in sync with the DelcomDll.*LED values
         public enum LightColors : byte
         {
@@ -37,11 +50,12 @@ namespace RRLightProgram
             uint hUSB;
             StringBuilder DeviceName = new StringBuilder(Delcom.MAXDEVICENAMELEN);
 
-            // Serach for the first match USB device, For USB IO Chips use Delcom.USBIODS
+            // Search for the first match USB device, For USB IO Chips use Delcom.USBIODS
             // With Generation 2 HID devices, you can pass a TypeId of 0 to open any Delcom device.
             Result = Delcom.DelcomGetNthDevice(Delcom.USBDELVI, 0, DeviceName);
 
             hUSB = Delcom.DelcomOpenDevice(DeviceName, 0);                      // open the device
+
             return hUSB;
         }
 
@@ -50,30 +64,95 @@ namespace RRLightProgram
             Delcom.DelcomCloseDevice(hUSB);
         }
 
-        public static void DelcomLEDOn(uint hUSB, LightColors color, LightStates action)
+        public static bool DelcomLEDAction(uint hUSB, LightColors color, LightStates action)
         {
-            DelcomLEDOffAction(hUSB);
-            System.Threading.Thread.Sleep(LEDWaitTime);//the light is not very responsive and cannot handle immediate consecutive requests to the same leds
-            Delcom.DelcomLEDControl(hUSB, (byte)color, (byte)action);
+            bool success = false;
+
+            //lock here so multiple threads don't try to toggle LEDs at once
+            //(though presently only one instance of the program works with the light at a time anyway)
+            lock (DelcomLightWrapper.CurrentLEDStates)
+            {
+                LightStates dictVal;
+                if (DelcomLightWrapper.CurrentLEDStates.TryGetValue(color, out dictVal) && dictVal == action)
+                {
+                    //that LED is already in appropriate state
+                    success = true;
+                }
+                else
+                {
+                    for (int i = 0; i < LEDMaxFailures; i++)
+                    {
+                        if (Delcom.DelcomLEDControl(hUSB, (byte)color, (byte)action) == 0)
+                        {
+                            DelcomLightWrapper.CurrentLEDStates[color] = action;
+                            success = true;
+                            break;
+                        }
+                        else
+                        {
+                            System.Threading.Thread.Sleep(LEDWaitTime);
+                        }
+                    }
+                }
+            }
+
+            return success;
         }
 
-        public static void DelcomLEDAllOn(uint hUSB, LightStates action)
+        public static bool DelcomLEDAllAction(uint hUSB, LightStates action)
         {
-            DelcomLEDOffAction(hUSB);
-            System.Threading.Thread.Sleep(LEDWaitTime);
-            Delcom.DelcomLEDControl(hUSB, Delcom.REDLED, (byte)action);
-            Delcom.DelcomLEDControl(hUSB, Delcom.GREENLED, (byte)action);
-            Delcom.DelcomLEDControl(hUSB, Delcom.YELLOWLED, (byte)action);
-            Delcom.DelcomLEDControl(hUSB, Delcom.BLUELED, (byte)action);
-        }
+            bool success = false;
 
-        public static void DelcomLEDOffAction(uint hUSB)
-        {
-            System.Threading.Thread.Sleep(LEDWaitTime);
-            Delcom.DelcomLEDControl(hUSB, Delcom.REDLED, (byte)LightStates.Off);
-            Delcom.DelcomLEDControl(hUSB, Delcom.GREENLED, (byte)LightStates.Off);
-            Delcom.DelcomLEDControl(hUSB, Delcom.YELLOWLED, (byte)LightStates.Off);
-            Delcom.DelcomLEDControl(hUSB, Delcom.BLUELED, (byte)LightStates.Off);
+            List<LightColors> lightsRemaining = new List<LightColors>();
+
+            //lock here so multiple threads don't try to toggle LEDs at once
+            //(though presently only one instance of the program works with the light at a time anyway)
+            lock (DelcomLightWrapper.CurrentLEDStates)
+            {
+                foreach (KeyValuePair<LightColors, LightStates> lightAndState in DelcomLightWrapper.CurrentLEDStates)
+                {
+                    if (lightAndState.Value != action)
+                    {
+                        lightsRemaining.Add(lightAndState.Key);
+                    }
+                }
+
+                if (lightsRemaining.Count == 0)
+                {
+                    //all LEDs already in appropriate state
+                    success = true;
+                }
+                else
+                {
+                    for (int i = 0; i < LEDMaxFailures; i++)
+                    {
+                        List<LightColors> lightsFailed = new List<LightColors>();
+
+                        foreach (LightColors remainingLight in lightsRemaining)
+                        {
+                            if (Delcom.DelcomLEDControl(hUSB, (byte)remainingLight, (byte)action) == 0)
+                            {
+                                DelcomLightWrapper.CurrentLEDStates[remainingLight] = action;
+                            }
+                            else
+                            {
+                                lightsFailed.Add(remainingLight);
+                            }
+                        }
+
+                        if (lightsFailed.Count == 0)
+                        {
+                            success = true;
+                            break;
+                        }
+
+                        lightsRemaining = lightsFailed;
+                        System.Threading.Thread.Sleep(LEDWaitTime);
+                    }
+                }
+            }
+
+            return success;
         }
 
         public static ButtonState DelcomGetButtonStatus(uint hUSB)
