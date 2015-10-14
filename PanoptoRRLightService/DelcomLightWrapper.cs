@@ -8,7 +8,7 @@ namespace RRLightProgram
     internal class DelcomLightWrapper
     {
         private const int LEDWaitTime = 150;//pretty arbitrary, stops all observed failures and not too noticable a delay
-        private const int LEDMaxFailures = 3;//also somewhat arbitrary; should be adjusted after testing
+        private const int LEDMaxFailures = 5;//also somewhat arbitrary; should be adjusted after testing
 
         // NOTE: These must stay in sync with DelcomDll.*LED values
         // We only include yellow (not blue) because their byte value is the same

@@ -77,8 +77,11 @@ namespace RRLightProgram
 
                 if (inputColor == DelcomColor.Off)
                 {
-                    // this function returns "false" on failure, but we don't currently check the return value
-                    DelcomLightWrapper.DelcomLEDAllAction(this.hUSB, DelcomLightWrapper.LightStates.Off);
+                    if (!DelcomLightWrapper.DelcomLEDAllAction(this.hUSB, DelcomLightWrapper.LightStates.Off) && Program.RunFromConsole)
+                    {
+                        Trace.TraceInformation(DateTime.Now + ": LED failure: all off");
+                        Trace.Flush();
+                    }
                 }
                 else
                 {
@@ -88,9 +91,17 @@ namespace RRLightProgram
                     DelcomLightWrapper.LightStates action = steady ? DelcomLightWrapper.LightStates.On
                                                                    : DelcomLightWrapper.LightStates.Flash;
 
-                    // these functions both return "false" on failure, but we don't currently check the return values
-                    DelcomLightWrapper.DelcomLEDAllAction(this.hUSB, DelcomLightWrapper.LightStates.Off);
-                    DelcomLightWrapper.DelcomLEDAction(this.hUSB, color, action);
+                    if (!DelcomLightWrapper.DelcomLEDAllAction(this.hUSB, DelcomLightWrapper.LightStates.Off) && Program.RunFromConsole)
+                    {
+                        Trace.TraceInformation(DateTime.Now + ": LED failure: all off");
+                        Trace.Flush();
+                    }
+                    if (!DelcomLightWrapper.DelcomLEDAction(this.hUSB, color, action) && Program.RunFromConsole)
+                    {
+                        Trace.TraceInformation(DateTime.Now + ": LED failure: " + Enum.GetName(typeof(DelcomLightWrapper.LightColors), color) + 
+                                                " " + Enum.GetName(typeof(DelcomLightWrapper.LightStates), action));
+                        Trace.Flush();
+                    }
 
                     // We need to only have the light on for the requested duration
                     if (duration != null)
@@ -111,8 +122,11 @@ namespace RRLightProgram
                             if (currentButtonAction == rememberedButtonAction)
                             {
                                 // Only turn the light off if they still match, otherwise we've moved on to a new action
-                                // (this function returns "false" on failure, but we don't currently check the return value)
-                                DelcomLightWrapper.DelcomLEDAllAction(this.hUSB, DelcomLightWrapper.LightStates.Off);
+                                if (!DelcomLightWrapper.DelcomLEDAllAction(this.hUSB, DelcomLightWrapper.LightStates.Off) && Program.RunFromConsole)
+                                {
+                                    Trace.TraceInformation(DateTime.Now + ": LED failure: all off");
+                                    Trace.Flush();
+                                }
                             }
                             else
                             {
