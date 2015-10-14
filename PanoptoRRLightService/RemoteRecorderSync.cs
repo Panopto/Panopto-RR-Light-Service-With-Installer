@@ -191,7 +191,7 @@ namespace RRLightProgram
         /// <param name="blockUntilRunning">True iff this should block current thread until RR service is running</param>
         private void HandleRRException(Exception e, bool blockUntilRunning)
         {
-            // EndopointNotFoundException raised if channel is created before RR service is running;
+            // EndpointNotFoundException raised if channel is created before RR service is running;
             // FaultException raised if RR service stops after channel is connected to it.
             if (blockUntilRunning && (e is EndpointNotFoundException || e is FaultException))
             {
@@ -205,8 +205,8 @@ namespace RRLightProgram
                      * exception and return to this loop, so it's safe.
                      */
                     Thread.Sleep(RRServiceSetupInterval);
-
-                     SetUpController();
+                    
+                    SetUpController();
                 }
             }
             else
