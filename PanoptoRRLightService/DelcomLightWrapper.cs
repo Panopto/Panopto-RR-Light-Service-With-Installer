@@ -12,11 +12,12 @@ namespace RRLightProgram
 
         // NOTE: These must stay in sync with DelcomDll.*LED values
         // We only include yellow (not blue) because their byte value is the same
+        // Assume all are on to begin with so that we can turn them off
         private static Dictionary<LightColors, LightStates> CurrentLEDStates = new Dictionary<LightColors, LightStates>
             {
-                { LightColors.Green, LightStates.Off },
-                { LightColors.Red, LightStates.Off },
-                { LightColors.Yellow, LightStates.Off }
+                { LightColors.Green, LightStates.On },
+                { LightColors.Red, LightStates.On },
+                { LightColors.Yellow, LightStates.On }
             };
 
         // NOTE: These must stay in sync with the DelcomDll.*LED values

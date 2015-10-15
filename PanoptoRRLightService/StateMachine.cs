@@ -193,6 +193,16 @@ namespace RRLightProgram
             throw new NotSupportedException(String.Format("State machine reached an error transition: {0} {1}.", currentState, inputArgs));
         }
 
+        //Always return true
+        private static bool ActionRRNoop(
+            StateMachine control,
+            RRState currentState,
+            StateMachineInputArgs inputArgs
+            )
+        {
+            return true;
+        }
+
         //Stop recorder and turn light off
         private static bool ActionRRStopped(
             StateMachine control,
@@ -338,7 +348,7 @@ namespace RRLightProgram
             return true;
         }
 
-        //Turn light off
+        //Turn light red
         private static bool ActionRRFaultOrDisconnect(
             StateMachine control,
             RRState currentState,
@@ -362,7 +372,7 @@ namespace RRLightProgram
             return true;
         }
 
-        //Turn light off
+        //Turn light red
         private static bool ActionNotQueuedButtonDown(
             StateMachine control,
             RRState currentState,
@@ -408,81 +418,72 @@ namespace RRLightProgram
         /// </summary>
         public void ProcessStateMachineInput(StateMachineInputArgs inputArgs)
         {
-            // prevent re-entrancy by queing the input if
-            // we are already processing an event
-            if (m_processingEvent)
+            // prevent re-entrancy by queing the input if we are already processing an event
+
+            StateMachineInputArgs input = null;
+
+            lock (m_stateMachineInputQueue)
             {
-                if (m_stateMachineInputQueue == null)
-                {
-                    m_stateMachineInputQueue = new Queue<StateMachineInputArgs>();
-                }
                 m_stateMachineInputQueue.Enqueue(inputArgs);
+
+                // We only process SM events in one thread at any time;
+                // if another thread is working on it, it's enough to just enqueue the new input
+                if(!m_processingEvent)
+                {
+                    m_processingEvent = true;
+                    input = m_stateMachineInputQueue.Dequeue();
+                }
             }
-            else
+
+            while (input != null)
             {
+                Transition transition = m_transitionTable[(int)m_SMState,
+                                                          (int)input.Input];
                 if (Program.RunFromConsole)
                 {
+                    Trace.Assert(transition.currentState == m_SMState);
+                    Trace.Assert(transition.input == input.Input);
+                    Trace.Assert(transition.actionId < ActionId.LAST);
+
                     Trace.TraceInformation(DateTime.Now + ": SM State:" + m_SMState.ToString());
-                    Trace.TraceInformation(DateTime.Now + ": SM Input:" + inputArgs.Input.ToString());
+                    Trace.TraceInformation(DateTime.Now + ": SM Input:" + input.Input.ToString());
                     Trace.Flush();
                 }
 
-                m_processingEvent = true;
-                StateMachineInputArgs input = null;
-
-                if (m_stateMachineInputQueue != null)
+                StateMachineAction action = m_actionTable[(int)transition.actionId];
+                
+                if (action(this, State, input))
                 {
-                    input = m_stateMachineInputQueue.Dequeue();
+                    RRState newState = transition.newState;
+
+                    RRState oldState = m_SMState;
+
+                    if (newState != m_SMState)
+                    {
+                        m_SMState = newState;
+                    }
                 }
-                else input = inputArgs;
 
+                m_lastStateMachineInput = input.Input;
 
-                while (input != null)
+                if (Program.RunFromConsole)
                 {
-                    Transition transition = m_transitionTable[(int)m_SMState,
-                                                              (int)input.Input];
-                    if (Program.RunFromConsole)
-                    {
-                        Trace.Assert(transition.currentState == m_SMState);
-                        Trace.Assert(transition.input == input.Input);
-                        Trace.Assert(transition.actionId < ActionId.LAST);
-                    }
+                    Trace.TraceInformation(DateTime.Now + ": SM NewState:" + m_SMState.ToString());
+                    Trace.Flush();
+                }
 
-                    StateMachineAction action = m_actionTable[(int)transition.actionId];
-                    bool actionSucceeded = true;
-                    if (action != null)
-                    {
-                        actionSucceeded = action(this, State, input);
-                    }
-                    if (actionSucceeded)
-                    {
-                        RRState newState = transition.newState;
-
-                        RRState oldState = m_SMState;
-
-                        if (newState != m_SMState)
-                        {
-                            m_SMState = newState;
-                        }
-                    }
-
-                    m_lastStateMachineInput = input.Input;
-                    if ((m_stateMachineInputQueue != null) &&
-                        (m_stateMachineInputQueue.Count > 0))
+                // Process any inputs that were queued while we were working
+                lock (m_stateMachineInputQueue)
+                {
+                    if (m_stateMachineInputQueue.Count > 0)
                     {
                         input = m_stateMachineInputQueue.Dequeue();
                     }
                     else
                     {
                         input = null;
+                        m_processingEvent = false;
                     }
-                }
-                m_processingEvent = false;
-
-                if (Program.RunFromConsole)
-                {
-                    Trace.TraceInformation(DateTime.Now + ": SM NewState:" + m_SMState.ToString());
-                    Trace.Flush();
                 }
             }
         }
@@ -515,7 +516,7 @@ namespace RRLightProgram
         // Must be kept in sync with enum ActionID
         private StateMachineAction[] m_actionTable =
         {
-            null,
+            new StateMachineAction(ActionRRNoop),
             new StateMachineAction(ActionRRStopped),
             new StateMachineAction(ActionRRStoppingPaused),
             new StateMachineAction(ActionRRStoppingRecording),
@@ -750,7 +751,7 @@ namespace RRLightProgram
 
         private StateMachineInput m_lastStateMachineInput = StateMachineInput.NoInput;
         private bool m_processingEvent = false;
-        private Queue<StateMachineInputArgs> m_stateMachineInputQueue = null;
+        private Queue<StateMachineInputArgs> m_stateMachineInputQueue = new Queue<StateMachineInputArgs>();
 
         #endregion Private
     }
