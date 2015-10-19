@@ -435,14 +435,7 @@ namespace RRLightProgram
                 
             if (action(this, State, inputArgs))
             {
-                RRState newState = transition.newState;
-
-                RRState oldState = m_SMState;
-
-                if (newState != m_SMState)
-                {
-                    m_SMState = newState;
-                }
+                m_SMState = transition.newState;
             }
 
             m_lastStateMachineInput = inputArgs.Input;
