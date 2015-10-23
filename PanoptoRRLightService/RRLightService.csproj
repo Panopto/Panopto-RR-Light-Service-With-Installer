@@ -46,6 +46,9 @@
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>4</WarningLevel>
   </PropertyGroup>
+  <PropertyGroup>
+    <StartupObject />
+  </PropertyGroup>
   <ItemGroup>
     <Reference Include="RemoteRecorderAPI">
       <HintPath>..\..\..\..\..\..\..\tfs\Panopto\4_8_00\Panopto\Applications\RemoteRecorderAPI\bin\Release\RemoteRecorderAPI.dll</HintPath>
@@ -126,6 +129,9 @@
     <Content Include="RemoteRecorderAPI.dll">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
+  </ItemGroup>
+  <ItemGroup>
+    <WCFMetadata Include="Service References\" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 

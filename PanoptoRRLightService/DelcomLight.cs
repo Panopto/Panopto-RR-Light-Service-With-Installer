@@ -204,7 +204,6 @@ namespace RRLightProgram
 
                             if (iterationsSinceLastButtonRelease > buttonReleaseTolerance)
                             {
-
                                 // Only remember the currentstate as changed if we're outside of our tolerance
                                 currentState = newState;
 
@@ -246,7 +245,7 @@ namespace RRLightProgram
                             {
                                 // The button has just been pressed
 
-                                // Only remember the currentstate as changed if we're outside of our tolerance
+                                // Only remember the current state as changed if we're outside of our tolerance
                                 currentState = newState;
 
                                 //Button just pressed so reset timer
@@ -282,7 +281,7 @@ namespace RRLightProgram
                             //If hold duration is greater than threshold we should fire a button held event
                             if (holdDuration > holdThreshold)
                             {
-                                // Notify that we've had a button up
+                                // Notify that we've had a button held
                                 if (stateMachineInputCallback != null)
                                 {
                                     StateMachine.StateMachineInputArgs buttonArgs = new StateMachine.StateMachineInputArgs(StateMachine.StateMachineInput.ButtonHeld, holdDuration);
