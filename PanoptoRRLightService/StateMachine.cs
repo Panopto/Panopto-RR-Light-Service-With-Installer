@@ -15,12 +15,14 @@ namespace RRLightProgram
     public class StateMachine
     {
         private DelcomLight light;
+        private SerialComm serial;
         private RemoteRecorderSync rrSync;
 
-        public StateMachine(DelcomLight light, RemoteRecorderSync rrSync)
+        public StateMachine(DelcomLight light, SerialComm serial, RemoteRecorderSync rrSync)
         {
             //hold onto the Light and the RemoteRecorder so we can issue actions as necessary
             this.light = light;
+            this.serial = serial;
             this.rrSync = rrSync;
         }
 
@@ -436,6 +438,11 @@ namespace RRLightProgram
             if (action(this, State, inputArgs))
             {
                 m_SMState = transition.newState;
+                this.serial.SerialOutput(inputArgs.Input.ToString() + " OK");
+            }
+            else
+            {
+                this.serial.SerialOutput(inputArgs.Input.ToString() + " ERROR");
             }
 
             m_lastStateMachineInput = inputArgs.Input;
