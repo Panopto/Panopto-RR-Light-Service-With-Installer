@@ -202,8 +202,10 @@ namespace RRLightProgram
                 {
                     deviceOpened = true;
                 }
-            }            
-            
+            }
+
+            Delcom.DelcomEnableAutoConfirm(hUSB, 0);
+
             return hUSB;
         }
 
