@@ -70,6 +70,7 @@
     <Compile Include="Delcom\DelcomDll.cs" />
     <Compile Include="Delcom\DelcomLight.cs" />
     <Compile Include="Delcom\DelcomLightWrapper.cs" />
+    <Compile Include="IConsole.cs" />
     <Compile Include="ILightControl.cs" />
     <Compile Include="IStateMachine.cs" />
     <Compile Include="ProjectInstaller.cs">
@@ -92,6 +93,7 @@
     </Compile>
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
+    <Compile Include="Serial\SerialComm.cs" />
     <Compile Include="StateMachine.cs" />
     <Compile Include="TraceVerbose.cs" />
   </ItemGroup>
