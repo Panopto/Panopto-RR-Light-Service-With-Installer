@@ -87,6 +87,7 @@ namespace RRLightProgram
             CommandStop = 14,
             CommandPause = 15,
             CommandResume = 16,
+            CommandExtend = 17,
         }
 
         /// <summary>
@@ -404,6 +405,41 @@ namespace RRLightProgram
             return true;
         }
 
+        //Extend active recording
+        private static bool ActionExtendPaused(
+            StateMachine control,
+            RRState currentState,
+            StateMachineInputArgs inputArgs
+            )
+        {
+            bool extendRecording = control.rrSync.ExtendCurrentRecording();
+            if (extendRecording == false)
+            {
+                //If we can't extend the recording, flash red for 2 seconds and change light back to paused color before returning false
+                control.light.ChangeColor(DelcomColor.Red, false, TimeSpan.FromMilliseconds(2000));
+                Thread.Sleep(2000);
+                control.light.ChangeColor(DelcomColor.Yellow);
+            }
+            return extendRecording;
+        }
+
+        private static bool ActionExtendRecording(
+            StateMachine control,
+            RRState currentState,
+            StateMachineInputArgs inputArgs
+            )
+        {
+            bool extendRecording = control.rrSync.ExtendCurrentRecording();
+            if (extendRecording == false)
+            {
+                //If we can't extend the recording, flash red for 2 seconds and set light back to recording color before returning false
+                control.light.ChangeColor(DelcomColor.Red, false, TimeSpan.FromMilliseconds(2000));
+                Thread.Sleep(2000);
+                control.light.ChangeColor(DelcomColor.Green);
+            }
+            return extendRecording;
+        }
+
         //Turn off light for ending loop
         private static bool ActionLast(
             StateMachine control,
@@ -482,7 +518,9 @@ namespace RRLightProgram
             Running = 11,
             CantRecordButtonDown = 12,
             CantRecordButtonUp = 13,
-            LAST = 14,
+            ExtendPaused = 14,
+            ExtendRecording = 15,
+            LAST = 16,
         };
 
         // Must be kept in sync with enum ActionID
@@ -502,6 +540,8 @@ namespace RRLightProgram
             new StateMachineAction(ActionRRRunning),
             new StateMachineAction(ActionNotQueuedButtonDown),
             new StateMachineAction(ActionNotQueuedButtonUp),
+            new StateMachineAction(ActionExtendPaused),
+            new StateMachineAction(ActionExtendRecording),
             new StateMachineAction(ActionLast),
         };
 
@@ -532,6 +572,7 @@ namespace RRLightProgram
                 new Transition(RRS.Init,               StateMachineInput.CommandStop,                   ActionId.Noop,                  RRS.Init),
                 new Transition(RRS.Init,               StateMachineInput.CommandPause,                  ActionId.Noop,                  RRS.Init),
                 new Transition(RRS.Init,               StateMachineInput.CommandResume,                 ActionId.Noop,                  RRS.Init),
+                new Transition(RRS.Init,               StateMachineInput.CommandExtend,                 ActionId.Noop,                  RRS.Init),
             },
             {
                 new Transition(RRS.RRPreviewing,       StateMachineInput.NoInput,                       ActionId.Preview,               RRS.RRPreviewing),
@@ -551,6 +592,7 @@ namespace RRLightProgram
                 new Transition(RRS.RRPreviewing,       StateMachineInput.CommandStop,                   ActionId.Noop,                  RRS.RRPreviewing),
                 new Transition(RRS.RRPreviewing,       StateMachineInput.CommandPause,                  ActionId.Noop,                  RRS.RRPreviewing),
                 new Transition(RRS.RRPreviewing,       StateMachineInput.CommandResume,                 ActionId.Noop,                  RRS.RRPreviewing),
+                new Transition(RRS.RRPreviewing,       StateMachineInput.CommandExtend,                 ActionId.Noop,                  RRS.RRPreviewing),
             },
             {
                 new Transition(RRS.RRPreviewingQueued, StateMachineInput.NoInput,                       ActionId.Preview,               RRS.RRPreviewingQueued),
@@ -570,6 +612,7 @@ namespace RRLightProgram
                 new Transition(RRS.RRPreviewingQueued, StateMachineInput.CommandStop,                   ActionId.Noop,                  RRS.RRPreviewingQueued),
                 new Transition(RRS.RRPreviewingQueued, StateMachineInput.CommandPause,                  ActionId.Noop,                  RRS.RRPreviewingQueued),
                 new Transition(RRS.RRPreviewingQueued, StateMachineInput.CommandResume,                 ActionId.Noop,                  RRS.RRPreviewingQueued),
+                new Transition(RRS.RRPreviewingQueued, StateMachineInput.CommandExtend,                 ActionId.Noop,                  RRS.RRPreviewingQueued),
             },
 
              {
@@ -590,6 +633,7 @@ namespace RRLightProgram
                 new Transition(RRS.RRRecordingWait,     StateMachineInput.CommandStop,                  ActionId.Noop,                 RRS.RRRecordingWait),
                 new Transition(RRS.RRRecordingWait,     StateMachineInput.CommandPause,                 ActionId.Noop,                 RRS.RRRecordingWait),
                 new Transition(RRS.RRRecordingWait,     StateMachineInput.CommandResume,                ActionId.Noop,                 RRS.RRRecordingWait),
+                new Transition(RRS.RRRecordingWait,     StateMachineInput.CommandExtend,                ActionId.Noop,                 RRS.RRRecordingWait),
             },
 
             {
@@ -610,6 +654,7 @@ namespace RRLightProgram
                 new Transition(RRS.RRRecording,        StateMachineInput.CommandStop,                   ActionId.StoppingRecording,    RRS.RRStoppingRecord),
                 new Transition(RRS.RRRecording,        StateMachineInput.CommandPause,                  ActionId.Pause,                RRS.RRPausedWait),
                 new Transition(RRS.RRRecording,        StateMachineInput.CommandResume,                 ActionId.Noop,                 RRS.RRRecording),
+                new Transition(RRS.RRRecording,        StateMachineInput.CommandExtend,                 ActionId.ExtendRecording,      RRS.RRRecording),
             },
 
             {
@@ -630,6 +675,7 @@ namespace RRLightProgram
                 new Transition(RRS.RRPausedWait,        StateMachineInput.CommandStop,                  ActionId.Noop,                 RRS.RRPausedWait),
                 new Transition(RRS.RRPausedWait,        StateMachineInput.CommandPause,                 ActionId.Noop,                 RRS.RRPausedWait),
                 new Transition(RRS.RRPausedWait,        StateMachineInput.CommandResume,                ActionId.Noop,                 RRS.RRPausedWait),
+                new Transition(RRS.RRPausedWait,        StateMachineInput.CommandExtend,                ActionId.Noop,                 RRS.RRPausedWait),
             },
 
             {
@@ -650,6 +696,7 @@ namespace RRLightProgram
                 new Transition(RRS.RRPaused,           StateMachineInput.CommandStop,                   ActionId.StoppingPaused,       RRS.RRStoppingPaused),
                 new Transition(RRS.RRPaused,           StateMachineInput.CommandPause,                  ActionId.Noop,                 RRS.RRPaused),
                 new Transition(RRS.RRPaused,           StateMachineInput.CommandResume,                 ActionId.Resume,               RRS.RRRecordingWait),
+                new Transition(RRS.RRPaused,           StateMachineInput.CommandExtend,                 ActionId.ExtendPaused,         RRS.RRPaused),
             },
 
               {
@@ -670,6 +717,7 @@ namespace RRLightProgram
                 new Transition(RRS.RRStoppingPaused,   StateMachineInput.CommandStop,                   ActionId.Noop,                 RRS.RRStoppingPaused),
                 new Transition(RRS.RRStoppingPaused,   StateMachineInput.CommandPause,                  ActionId.Noop,                 RRS.RRStoppingPaused),
                 new Transition(RRS.RRStoppingPaused,   StateMachineInput.CommandResume,                 ActionId.Noop,                 RRS.RRStoppingPaused),
+                new Transition(RRS.RRStoppingPaused,   StateMachineInput.CommandExtend,                 ActionId.Noop,                 RRS.RRStoppingPaused),
             },
 
                   {
@@ -690,6 +738,7 @@ namespace RRLightProgram
                 new Transition(RRS.RRStoppingRecord,   StateMachineInput.CommandStop,                   ActionId.Noop,                 RRS.RRStoppingRecord),
                 new Transition(RRS.RRStoppingRecord,   StateMachineInput.CommandPause,                  ActionId.Noop,                 RRS.RRStoppingRecord),
                 new Transition(RRS.RRStoppingRecord,   StateMachineInput.CommandResume,                 ActionId.Noop,                 RRS.RRStoppingRecord),
+                new Transition(RRS.RRStoppingRecord,   StateMachineInput.CommandExtend,                 ActionId.Noop,                 RRS.RRStoppingRecord),
             },
             {
                 new Transition(RRS.RRStopped,          StateMachineInput.NoInput,                       ActionId.Stop,                 RRS.RRStopped),
@@ -709,6 +758,7 @@ namespace RRLightProgram
                 new Transition(RRS.RRStopped,          StateMachineInput.CommandStop,                   ActionId.Noop,                 RRS.RRStopped),
                 new Transition(RRS.RRStopped,          StateMachineInput.CommandPause,                  ActionId.Noop,                 RRS.RRStopped),
                 new Transition(RRS.RRStopped,          StateMachineInput.CommandResume,                 ActionId.Noop,                 RRS.RRStopped),
+                new Transition(RRS.RRStopped,          StateMachineInput.CommandExtend,                 ActionId.Noop,                 RRS.RRStopped),
             },
             {
                 new Transition(RRS.RRRunning,          StateMachineInput.NoInput,                       ActionId.Running,              RRS.RRRunning),
@@ -728,6 +778,7 @@ namespace RRLightProgram
                 new Transition(RRS.RRRunning,          StateMachineInput.CommandStop,                   ActionId.Noop,                 RRS.RRRunning),
                 new Transition(RRS.RRRunning,          StateMachineInput.CommandPause,                  ActionId.Noop,                 RRS.RRRunning),
                 new Transition(RRS.RRRunning,          StateMachineInput.CommandResume,                 ActionId.Noop,                 RRS.RRRunning),
+                new Transition(RRS.RRRunning,          StateMachineInput.CommandExtend,                 ActionId.Noop,                 RRS.RRRunning),
             },
             {
                 new Transition(RRS.RRFaulted,          StateMachineInput.NoInput,                       ActionId.FaultDisconnect,      RRS.RRFaulted),
@@ -747,6 +798,7 @@ namespace RRLightProgram
                 new Transition(RRS.RRFaulted,          StateMachineInput.CommandStop,                   ActionId.Noop,                 RRS.RRFaulted),
                 new Transition(RRS.RRFaulted,          StateMachineInput.CommandPause,                  ActionId.Noop,                 RRS.RRFaulted),
                 new Transition(RRS.RRFaulted,          StateMachineInput.CommandResume,                 ActionId.Noop,                 RRS.RRFaulted),
+                new Transition(RRS.RRFaulted,          StateMachineInput.CommandExtend,                 ActionId.Noop,                 RRS.RRFaulted),
             },
 
              {
@@ -767,6 +819,7 @@ namespace RRLightProgram
                 new Transition(RRS.RRDisconnected,     StateMachineInput.CommandStop,                   ActionId.Noop,                 RRS.RRDisconnected),
                 new Transition(RRS.RRDisconnected,     StateMachineInput.CommandPause,                  ActionId.Noop,                 RRS.RRDisconnected),
                 new Transition(RRS.RRDisconnected,     StateMachineInput.CommandResume,                 ActionId.Noop,                 RRS.RRDisconnected),
+                new Transition(RRS.RRDisconnected,     StateMachineInput.CommandExtend,                 ActionId.Noop,                 RRS.RRDisconnected),
             },
         };
 

@@ -148,7 +148,7 @@ namespace RRLightProgram
         }
 
         /// <summary>
-        ///     Stop the current recording
+        ///     Extend the current recording
         /// </summary>
         /// <returns>true on success</returns>
         public bool ExtendCurrentRecording()

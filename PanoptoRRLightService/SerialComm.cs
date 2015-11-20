@@ -82,6 +82,7 @@ namespace RRLightProgram
                 { "STOP", StateMachine.StateMachineInput.CommandStop },
                 { "PAUSE", StateMachine.StateMachineInput.CommandPause },
                 { "RESUME", StateMachine.StateMachineInput.CommandResume },
+                { "EXTEND", StateMachine.StateMachineInput.CommandExtend },
             };
 
             while (sp.BytesToRead > 0 && !this.shouldStop)
