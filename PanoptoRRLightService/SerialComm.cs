@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO.Ports;
 
@@ -70,6 +71,41 @@ namespace RRLightProgram
         {
             this.shouldStop = true;
             this.hSerial.Close();
+        }
+
+        private void DataReceivedHandler(object sender, SerialDataReceivedEventArgs e)
+        {
+            SerialPort sp = (SerialPort)sender;
+            var SerialSMCommands = new Dictionary<string, StateMachine.StateMachineInput>(StringComparer.OrdinalIgnoreCase)
+            {
+                { "START", StateMachine.StateMachineInput.CommandStart },
+                { "STOP", StateMachine.StateMachineInput.CommandStop },
+                { "PAUSE", StateMachine.StateMachineInput.CommandPause },
+                { "RESUME", StateMachine.StateMachineInput.CommandResume },
+            };
+
+            while (sp.BytesToRead > 0 && !this.shouldStop)
+            {
+                StateMachine.StateMachineInput inputCommand = StateMachine.StateMachineInput.NoInput;
+                string inputString = sp.ReadLine().TrimEnd('\r');
+
+                Trace.TraceInformation(DateTime.Now + ": Serial Rx: " + inputString);
+                Trace.Flush();
+
+                //Fire the command event.
+                if (stateMachineInputCallback != null && SerialSMCommands.TryGetValue(inputString, out inputCommand))
+                {
+                    StateMachine.StateMachineInputArgs inputArgs = new StateMachine.StateMachineInputArgs(inputCommand);
+                    stateMachineInputCallback(inputArgs);
+                }
+                else
+                {
+                    Trace.TraceInformation(DateTime.Now + ": Serial: Command '{0}' not found", inputString);
+                    Trace.Flush();
+
+                    SerialOutput("Serial-Error: Command not found: " + inputString);
+                }
+            }
         }
     }
 }
