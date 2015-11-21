@@ -51,6 +51,8 @@ namespace RRLightProgram
                     Properties.Settings.Default.SerialPortDataBits,
                     (StopBits)Enum.Parse(typeof(StopBits), Properties.Settings.Default.SerialPortStopBits, true));
 
+                portObj.DataReceived += new SerialDataReceivedEventHandler(DataReceivedHandler);
+
                 portObj.Open();
 
                 Trace.TraceInformation(DateTime.Now + ": Opened serial port {0}",
@@ -68,7 +70,9 @@ namespace RRLightProgram
             return true;
         }
 
-        // Stop the background thread
+        /// <summary>
+        /// Close the device.
+        /// </summary>
         public void Stop()
         {
             this.portObj.Close();
@@ -82,6 +86,48 @@ namespace RRLightProgram
         {
             Trace.TraceInformation(DateTime.Now + ": Serial Tx: " + str);
             this.portObj.WriteLine(str);
+        }
+
+        #endregion
+
+        #region Serial input handler
+
+        /// <summary>
+        /// Handle events sent by our portObj
+        /// </summary>
+        private void DataReceivedHandler(object sender, SerialDataReceivedEventArgs e)
+        {
+            SerialPort sp = (SerialPort)sender;
+
+            while (sp.IsOpen && sp.BytesToRead > 0)
+            {
+                string inputString = sp.ReadLine().TrimEnd('\r');
+                Command inputCommand;
+
+                Trace.TraceInformation(DateTime.Now + ": Serial Rx: " + inputString);
+
+                //Fire the command event.
+                if (Enum.TryParse(inputString, true, out inputCommand))
+                {
+                    Input inputSMInput;
+
+                    // State machine input?
+                    if (Enum.TryParse("Command" + inputString, true, out inputSMInput))
+                    {
+                        this.stateMachine.PostInput(inputSMInput);
+                    }
+                    else
+                    {
+                        Trace.TraceError(DateTime.Now + ": Serial: Unhandled command '{0}'", inputString);
+                        this.Output("Error: Unhandled console command: " + inputString);
+                    }
+                }
+                else
+                {
+                    Trace.TraceInformation(DateTime.Now + ": Serial: Command '{0}' not found", inputString);
+                    this.Output("Serial-Error: Command not found: " + inputString);
+                }
+            }
         }
 
         #endregion

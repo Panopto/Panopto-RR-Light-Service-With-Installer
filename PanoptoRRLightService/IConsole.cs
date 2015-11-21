@@ -14,4 +14,15 @@ namespace RRLightProgram
         /// <param name="message">Message to be sent</param>
         void Output(String str);
     }
+
+    /// <summary>
+    /// List of the commands accepted by the console.
+    /// </summary>
+    public enum Command
+    {
+        Start,
+        Stop,
+        Pause,
+        Resume,
+    }
 }
