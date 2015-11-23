@@ -63,7 +63,14 @@ namespace RRLightProgram
 
             Trace.TraceInformation(DateTime.Now + ": Serial Tx: " + str);
             Trace.Flush();
-            this.hSerial.WriteLine(str);
+            if (str.Length > RRLightProgram.Properties.Settings.Default.SerialMaxLength)
+            {
+                this.hSerial.WriteLine(str.Substring(0, RRLightProgram.Properties.Settings.Default.SerialMaxLength));
+            }
+            else
+            {
+                this.hSerial.WriteLine(str);
+            }
         }
 
         // Stop the background thread

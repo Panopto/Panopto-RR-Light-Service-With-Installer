@@ -35,5 +35,8 @@
     <Setting Name="SerialPortStopBits" Type="System.String" Scope="Application">
       <Value Profile="(Default)">One</Value>
     </Setting>
+    <Setting Name="SerialMaxLength" Type="System.Int32" Scope="Application">
+      <Value Profile="(Default)">255</Value>
+    </Setting>
   </Settings>
 </SettingsFile>

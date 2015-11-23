@@ -121,5 +121,14 @@ namespace RRLightProgram.Properties {
                 return ((string)(this["SerialPortStopBits"]));
             }
         }
+        
+        [global::System.Configuration.ApplicationScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("255")]
+        public int SerialMaxLength {
+            get {
+                return ((int)(this["SerialMaxLength"]));
+            }
+        }
     }
 }
