@@ -1,0 +1,3 @@
+..\PanoptoRRLightService\bin\Release\DelcomDLL.dll
+..\PanoptoRRLightService\bin\Release\RemoteRecorderAPI.dll
+..\PanoptoRRLightService\bin\Release\RRLightService.exe

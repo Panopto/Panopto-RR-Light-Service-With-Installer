@@ -1,8 +1,10 @@
 C:\Users\plancaster\Documents\Visual Studio 2012\Projects\WindowsService2\WindowsServiceSetup4\bin\Release\WindowsServiceSetup4.msi
 C:\Users\plancaster\Documents\Visual Studio 2012\Projects\WindowsService2\WindowsServiceSetup4\bin\Release\WindowsServiceSetup4.wixpdb
+C:\Users\plancaster\documents\visual studio 2012\Projects\WindowsService2\PanoptoRRLightServiceInstaller\bin\Release\WindowsServiceSetup4.msi
+C:\Users\plancaster\documents\visual studio 2012\Projects\WindowsService2\PanoptoRRLightServiceInstaller\bin\Release\WindowsServiceSetup4.wixpdb
+C:\Users\klister\Documents\GitHub\Panopto-RR-Light-Service-With-Installer\PanoptoRRLightServiceInstaller\bin\Release\PanoptoRRLightServiceInstaller.msi
+C:\Users\klister\Documents\GitHub\Panopto-RR-Light-Service-With-Installer\PanoptoRRLightServiceInstaller\bin\Release\PanoptoRRLightServiceInstaller.wixpdb
 obj\Release\Product.wixobj
 obj\Release\PanoptoRRLightServiceInstaller.wixproj.BindContentsFileListnull.txt
 obj\Release\PanoptoRRLightServiceInstaller.wixproj.BindOutputsFileListnull.txt
 obj\Release\PanoptoRRLightServiceInstaller.wixproj.BindBuiltOutputsFileListnull.txt
-C:\Users\plancaster\documents\visual studio 2012\Projects\WindowsService2\PanoptoRRLightServiceInstaller\bin\Release\WindowsServiceSetup4.msi
-C:\Users\plancaster\documents\visual studio 2012\Projects\WindowsService2\PanoptoRRLightServiceInstaller\bin\Release\WindowsServiceSetup4.wixpdb

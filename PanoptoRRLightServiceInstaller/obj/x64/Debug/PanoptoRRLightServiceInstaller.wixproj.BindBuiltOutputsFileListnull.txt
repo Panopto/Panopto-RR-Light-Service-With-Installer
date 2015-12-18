@@ -1,0 +1,2 @@
+C:\Users\klister\Documents\GitHub\Panopto-RR-Light-Service-With-Installer\PanoptoRRLightServiceInstaller\bin\x64\Debug\PanoptoRRLightServiceInstaller.msi
+C:\Users\klister\Documents\GitHub\Panopto-RR-Light-Service-With-Installer\PanoptoRRLightServiceInstaller\bin\x64\Debug\PanoptoRRLightServiceInstaller.wixpdb
