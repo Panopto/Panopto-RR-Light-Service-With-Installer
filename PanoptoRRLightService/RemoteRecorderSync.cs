@@ -71,7 +71,7 @@ namespace RRLightProgram
         }
 
         /// <summary>
-        ///     Stop the current recording
+        ///     Resume the current recording
         /// </summary>
         /// <returns>true on success</returns>
         public bool ResumeCurrentRecording()
@@ -96,7 +96,7 @@ namespace RRLightProgram
         }
 
         /// <summary>
-        ///     Stop the current recording
+        ///     Pause the current recording
         /// </summary>
         /// <returns>true on success</returns>
         public bool PauseCurrentRecording()
@@ -121,7 +121,7 @@ namespace RRLightProgram
         }
 
         /// <summary>
-        ///     Stop the current recording
+        ///     Start the next recording
         /// </summary>
         /// <returns>true on success</returns>
         public bool StartNextRecording()
@@ -137,6 +137,35 @@ namespace RRLightProgram
                     && cState.CurrentRecording != nextRecording)
                 {
                     controller.StartNextRecording(nextRecording.Id);
+                    result = true;
+                }
+            }
+            catch (Exception e)
+            {
+                HandleRRException(e, false);
+            }
+
+            return result;
+        }
+
+        /// <summary>
+        ///     Start a new recording (not a webcast)
+        /// </summary>
+        /// <returns>true on success</returns>
+        public bool StartNewRecording()
+        {
+            bool result = false;
+
+            try
+            {
+                Recording nextRecording = controller.GetNextRecording();
+                RemoteRecorderState cState = controller.GetCurrentState();
+
+                if (cState.Status != RemoteRecorderStatus.Recording
+                    && cState.CurrentRecording == null
+                    && nextRecording == null)
+                {
+                    controller.StartNewRecording(false);
                     result = true;
                 }
             }
