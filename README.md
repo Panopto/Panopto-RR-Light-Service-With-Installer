@@ -2,7 +2,7 @@
 
 ## Light Button
 
-
+See http://support.panopto.com/documentation/recording/remote-recorder/utilizing-remote-recorder-usb-visual-signal-indicator
 
 ## Serial Communication
 
@@ -33,7 +33,7 @@ Input is limited to the following simple commands:
 
 Command | Description 
 --------|------------------------------------------
-START   | Start the next (queued) recording now
+START   | If a recording is queued, start it now. Otherwise start recording a new session.
 STOP    | Stop the current recording
 PAUSE   | Pause the current recording
 RESUME  | Resume the current (paused) recording
@@ -59,7 +59,7 @@ if the action was processed successfully, or
 ````
 <Action Name> ERROR
 ````
-if the action was not able to process. Note that actions that have no effect (such as trying to START or STOP when there is no current recording) will still result in an OK.
+if the action was not able to process. Note that actions that have no effect (such as trying to PAUSE or STOP when there is no current recording) will still result in an OK.
 
 Possible actions are:
 
@@ -116,7 +116,7 @@ Recorder-State     | Description
 Init               | Service is initializing, Remote Recorder state unknown
 RRPreviewing       | Previewing (Idle)
 RRPreviewingQueued | Previewing, a recording is queued to start within the next hour
-RRRecordingWait    | Paused or Previewing w/Queued, attempting to Resume/Start
+RRRecordingWait    | Paused or Previewing, attempting to Resume/Start
 RRRecording        | Recording
 RRPausedWait       | Recording, attempting to Pause
 RRPaused           | Paused
