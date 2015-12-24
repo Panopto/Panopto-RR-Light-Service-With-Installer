@@ -668,7 +668,7 @@ namespace RRLightProgram
                 new Transition(RRS.RRPreviewing,       StateMachineInput.ButtonHeld,                    ActionId.New,                   RRS.RRRecordingWait),
                 new Transition(RRS.RRPreviewing,       StateMachineInput.ButtonDown,                    ActionId.CantRecordButtonDown,   RRS.RRPreviewing),
                 new Transition(RRS.RRPreviewing,       StateMachineInput.ButtonUp,                      ActionId.CantRecordButtonUp,     RRS.RRPreviewing),
-                new Transition(RRS.RRPreviewing,       StateMachineInput.CommandStart,                  ActionId.Noop,                  RRS.RRPreviewing),
+                new Transition(RRS.RRPreviewing,       StateMachineInput.CommandStart,                  ActionId.New,                   RRS.RRRecordingWait),
                 new Transition(RRS.RRPreviewing,       StateMachineInput.CommandStop,                   ActionId.Noop,                  RRS.RRPreviewing),
                 new Transition(RRS.RRPreviewing,       StateMachineInput.CommandPause,                  ActionId.Noop,                  RRS.RRPreviewing),
                 new Transition(RRS.RRPreviewing,       StateMachineInput.CommandResume,                 ActionId.Noop,                  RRS.RRPreviewing),
