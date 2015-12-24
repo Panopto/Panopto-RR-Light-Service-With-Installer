@@ -7,3 +7,6 @@ C:\Users\plancaster\Documents\visual studio 2012\Projects\WindowsService2\Window
 C:\Users\plancaster\Documents\visual studio 2012\Projects\WindowsService2\WindowsService2\bin\Debug\RRLightService.pdb
 C:\Users\plancaster\Documents\visual studio 2012\Projects\WindowsService2\WindowsService2\obj\Debug\RRLightService.exe
 C:\Users\plancaster\Documents\visual studio 2012\Projects\WindowsService2\WindowsService2\obj\Debug\RRLightService.pdb
+C:\Users\bradleyb\Documents\GitHubVisualStudio\Panopto-RR-Light-Service-With-Installer\PanoptoRRLightService\bin\Debug\RRLightService.exe.config
+C:\Users\bradleyb\Documents\GitHubVisualStudio\Panopto-RR-Light-Service-With-Installer\PanoptoRRLightService\obj\Debug\RRLightService.exe
+C:\Users\bradleyb\Documents\GitHubVisualStudio\Panopto-RR-Light-Service-With-Installer\PanoptoRRLightService\obj\Debug\RRLightService.pdb

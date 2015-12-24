@@ -50,8 +50,9 @@
     <StartupObject />
   </PropertyGroup>
   <ItemGroup>
-    <Reference Include="RemoteRecorderAPI">
-      <HintPath>..\..\..\..\..\..\..\tfs\Panopto\4_8_00\Panopto\Applications\RemoteRecorderAPI\bin\Release\RemoteRecorderAPI.dll</HintPath>
+    <Reference Include="RemoteRecorderAPI, Version=1.0.0.0, Culture=neutral, processorArchitecture=MSIL">
+      <SpecificVersion>False</SpecificVersion>
+      <HintPath>\\tfs\tfsbuilds\pre_prod_x86_Official\pre_prod_x86_Official_20151216.1\RemoteRecorderAPI.dll</HintPath>
     </Reference>
     <Reference Include="System" />
     <Reference Include="System.Configuration.Install" />
@@ -89,6 +90,7 @@
     </Compile>
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
+    <Compile Include="SerialComm.cs" />
     <Compile Include="StateMachine.cs" />
   </ItemGroup>
   <ItemGroup>

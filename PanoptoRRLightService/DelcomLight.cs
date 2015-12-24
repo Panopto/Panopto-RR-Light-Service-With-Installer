@@ -35,11 +35,7 @@ namespace RRLightProgram
         /// <param name="stateMachineInputCallback">delegate to call when there's an event to report</param>
         public DelcomLight(MainAppLogic.EnqueueStateMachineInput stateMachineInputCallback, TimeSpan holdTime)
         {
-            hUSB = DelcomLightWrapper.TryOpeningDelcomDevice();
-
-            Delcom.DelcomEnableAutoConfirm(hUSB, 0);
-            // Make sure we always start turned off
-            DelcomLightWrapper.DelcomLEDAllAction(hUSB, DelcomLightWrapper.LightStates.Off);
+            hUSB = 0;
 
             // remember the delegate so we can invoke when we get input
             this.stateMachineInputCallback = stateMachineInputCallback;
@@ -179,8 +175,16 @@ namespace RRLightProgram
                 //If not still connected, start loop to poll for connection until it is connected.
                 if (!isStillConnected)
                 {
+                    Trace.TraceInformation(DateTime.Now + ": Light Button not connected");
+                    Trace.Flush();
+
                     DelcomLightWrapper.CloseDelcomDevice(hUSB);
                     hUSB = DelcomLightWrapper.TryOpeningDelcomDevice();
+
+                    Trace.TraceInformation(DateTime.Now + ": Light Button connected");
+                    Trace.Flush();
+                    StateMachine.StateMachineInputArgs buttonArgs = new StateMachine.StateMachineInputArgs(StateMachine.StateMachineInput.NoInput);
+                    stateMachineInputCallback(buttonArgs);
                 }
 
                 if ((DateTime.UtcNow - lastButtonUpTime) > minTimeBetweenClicks)

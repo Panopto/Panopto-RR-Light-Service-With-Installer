@@ -14,11 +14,29 @@
     <Setting Name="RecorderPollingIntervalMS" Type="System.Int32" Scope="Application">
       <Value Profile="(Default)">100</Value>
     </Setting>
-    <Setting Name="MinTimeBetweenClicksMilliseconds" Type="System.Int32" Scope="User">
+    <Setting Name="HoldDuration" Type="System.TimeSpan" Scope="Application">
+      <Value Profile="(Default)">00:00:05</Value>
+    </Setting>
+    <Setting Name="MintimeBetweenClicksMilliseconds" Type="System.Int32" Scope="Application">
       <Value Profile="(Default)">300</Value>
     </Setting>
-    <Setting Name="HoldDuration" Type="System.Int32" Scope="User">
-      <Value Profile="(Default)">5</Value>
+    <Setting Name="SerialPortName" Type="System.String" Scope="Application">
+      <Value Profile="(Default)" />
+    </Setting>
+    <Setting Name="SerialPortBaudRate" Type="System.Int32" Scope="Application">
+      <Value Profile="(Default)">9600</Value>
+    </Setting>
+    <Setting Name="SerialPortParity" Type="System.String" Scope="Application">
+      <Value Profile="(Default)">None</Value>
+    </Setting>
+    <Setting Name="SerialPortDataBits" Type="System.Int32" Scope="Application">
+      <Value Profile="(Default)">8</Value>
+    </Setting>
+    <Setting Name="SerialPortStopBits" Type="System.String" Scope="Application">
+      <Value Profile="(Default)">One</Value>
+    </Setting>
+    <Setting Name="SerialMaxLength" Type="System.Int32" Scope="Application">
+      <Value Profile="(Default)">255</Value>
     </Setting>
   </Settings>
 </SettingsFile>

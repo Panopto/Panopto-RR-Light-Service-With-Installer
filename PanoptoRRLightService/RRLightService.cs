@@ -95,11 +95,14 @@ namespace RRLightProgram
             DelcomLight dLight = new DelcomLight(new EnqueueStateMachineInput(this.AddInputToStateMachineQueue),
                                        RRLightProgram.Properties.Settings.Default.HoldDuration);
 
+            //Create new SerialComm object and start it's thread to listen for input from the button
+            SerialComm sComm = new SerialComm(new EnqueueStateMachineInput(this.AddInputToStateMachineQueue));
+
             //Create new remote recorder sync object to poll recorder state and input changes into state machine
             RemoteRecorderSync rSync = new RemoteRecorderSync(new EnqueueStateMachineInput(this.AddInputToStateMachineQueue));
 
-            //Initialize state machine. Pass in Light and RemoteRecorder
-            StateMachine sm = new StateMachine(dLight, rSync);
+            //Initialize state machine. Pass in Light, Serial, and RemoteRecorder
+            StateMachine sm = new StateMachine(dLight, sComm, rSync);
 
             // Main thread loop
             // Loop endlessly until we're asked to stop
