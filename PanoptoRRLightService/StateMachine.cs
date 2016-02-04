@@ -349,8 +349,9 @@ namespace RRLightProgram
             bool startNext = false;
             if (control.rrSync.SupportsStartNewRecording)
             {
-                startNext = control.rrSync.StartNewRecording();
                 control.light.ChangeColor(DelcomColor.Green, false, null);
+                startNext = control.rrSync.StartNewRecording();
+                
             }
             else
             {
