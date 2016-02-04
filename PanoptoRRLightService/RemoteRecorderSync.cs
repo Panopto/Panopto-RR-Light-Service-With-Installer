@@ -18,6 +18,8 @@ namespace RRLightProgram
         private IRemoteRecorderController controller;
         private bool shouldStop = false;
         private MainAppLogic.EnqueueStateMachineInput stateMachineInputCallback;
+        private Version RRVersion = null;
+
 
         /// <summary>
         ///     Constructor
@@ -29,6 +31,22 @@ namespace RRLightProgram
 
             this.stateMachineInputCallback = stateMachineInputCallback;
 
+            try
+            {
+                //Try to get the current remote recorder version number
+                Process result = Process.GetProcessesByName("RemoteRecorder").FirstOrDefault();
+                if (result != null)
+                {
+                    AssemblyName an = AssemblyName.GetAssemblyName(result.MainModule.FileName);
+                    this.RRVersion = an.Version;
+                }
+            }
+            catch
+            {
+                //If we fail to get the RR version, set it to 4.9.0 by default.
+                this.RRVersion = Version.Parse("4.9.0");
+            }
+
             //Start background thread to listen for input from recorder
             BackgroundWorker bgw = new BackgroundWorker();
             bgw.DoWork += delegate { BackgroundPollingWorker(); };
@@ -39,6 +57,12 @@ namespace RRLightProgram
         public void Stop()
         {
             this.shouldStop = true;
+        }
+
+        //Returns the version number of the running remote recorder
+        public Version getRemoteRecorderVersion()
+        {
+            return this.RRVersion;
         }
 
         /// <summary>

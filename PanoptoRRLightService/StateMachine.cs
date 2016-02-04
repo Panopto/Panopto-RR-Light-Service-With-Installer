@@ -19,21 +19,12 @@ namespace RRLightProgram
     {
         private DelcomLight light;
         private RemoteRecorderSync rrSync;
-        private static Version RRVersion = null;
 
         public StateMachine(DelcomLight light, RemoteRecorderSync rrSync)
         {
             //hold onto the Light and the RemoteRecorder so we can issue actions as necessary
             this.light = light;
             this.rrSync = rrSync;
-
-            //Try to get the current remote recorder version number
-            Process result = Process.GetProcessesByName("RemoteRecorder").FirstOrDefault();
-            if (result != null)
-            {
-                AssemblyName an = AssemblyName.GetAssemblyName(result.MainModule.FileName);
-                StateMachine.RRVersion = an.Version;
-            }
         }
 
         #region Public
@@ -356,8 +347,8 @@ namespace RRLightProgram
             )
         {
             bool startNext = false;
-            if (StateMachine.RRVersion != null && 
-                StateMachine.RRVersion.CompareTo(Version.Parse("5.0")) >= 0)
+            if (control.rrSync.getRemoteRecorderVersion() != null &&
+                control.rrSync.getRemoteRecorderVersion().CompareTo(Version.Parse("5.0")) >= 0)
             {
                 startNext = control.rrSync.StartNewRecording();
                 control.light.ChangeColor(DelcomColor.Green, false, null);
