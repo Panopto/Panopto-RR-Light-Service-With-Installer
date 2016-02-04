@@ -347,8 +347,7 @@ namespace RRLightProgram
             )
         {
             bool startNext = false;
-            if (control.rrSync.getRemoteRecorderVersion() != null &&
-                control.rrSync.getRemoteRecorderVersion().CompareTo(Version.Parse("5.0")) >= 0)
+            if (control.rrSync.SupportsStartNewRecording)
             {
                 startNext = control.rrSync.StartNewRecording();
                 control.light.ChangeColor(DelcomColor.Green, false, null);
