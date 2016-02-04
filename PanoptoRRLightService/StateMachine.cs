@@ -1,10 +1,13 @@
-﻿// Uncomment the below to turn on debug output for this state machine
+// Uncomment the below to turn on debug output for this state machine
 // #define s_debugoutput
 
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Linq;
+using System.Reflection;
 using System.Threading;
+using Panopto.RemoteRecorderAPI.V1;
 
 namespace RRLightProgram
 {
@@ -16,12 +19,21 @@ namespace RRLightProgram
     {
         private DelcomLight light;
         private RemoteRecorderSync rrSync;
+        private static Version RRVersion = null;
 
         public StateMachine(DelcomLight light, RemoteRecorderSync rrSync)
         {
             //hold onto the Light and the RemoteRecorder so we can issue actions as necessary
             this.light = light;
             this.rrSync = rrSync;
+
+            //Try to get the current remote recorder version number
+            Process result = Process.GetProcessesByName("RemoteRecorder").FirstOrDefault();
+            if (result != null)
+            {
+                AssemblyName an = AssemblyName.GetAssemblyName(result.MainModule.FileName);
+                StateMachine.RRVersion = an.Version;
+            }
         }
 
         #region Public
@@ -343,10 +355,14 @@ namespace RRLightProgram
             StateMachineInputArgs inputArgs
             )
         {
-            control.light.ChangeColor(DelcomColor.Green, false, null);
-
-            bool startNext = control.rrSync.StartNewRecording();
-            if (startNext == false)
+            bool startNext = false;
+            if (StateMachine.RRVersion != null && 
+                StateMachine.RRVersion.CompareTo(Version.Parse("5.0")) >= 0)
+            {
+                startNext = control.rrSync.StartNewRecording();
+                control.light.ChangeColor(DelcomColor.Green, false, null);
+            }
+            else
             {
                 //If we can't start the next recording, flash red for 2 seconds then return the light to off before returning false
                 control.light.ChangeColor(DelcomColor.Red, false, TimeSpan.FromMilliseconds(2000));
@@ -452,7 +468,7 @@ namespace RRLightProgram
             }
 
             StateMachineAction action = m_actionTable[(int)transition.actionId];
-                
+
             if (action(this, State, inputArgs))
             {
                 m_SMState = transition.newState;
