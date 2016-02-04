@@ -410,8 +410,34 @@ namespace RRLightProgram
             return true;
         }
 
+        //Turn light red
+        private static bool ActionPreviewingButtonDown(
+            StateMachine control,
+            RRState currentState,
+            StateMachineInputArgs inputArgs
+            )
+        {
+            if (!control.rrSync.SupportsStartNewRecording)
+            {
+                control.light.ChangeColor(DelcomColor.Red);
+            }
+            return true;
+        }
+
         //Turn light off
         private static bool ActionNotQueuedButtonUp(
+            StateMachine control,
+            RRState currentState,
+            StateMachineInputArgs inputArgs
+            )
+        {
+            control.light.ChangeColor(DelcomColor.Off);
+
+            return true;
+        }
+
+        //Turn light off
+        private static bool ActionPreviewingButtonUp(
             StateMachine control,
             RRState currentState,
             StateMachineInputArgs inputArgs
@@ -496,7 +522,9 @@ namespace RRLightProgram
             Running = 12,
             CantRecordButtonDown = 13,
             CantRecordButtonUp = 14,
-            LAST = 15,
+            PreviewingButtonDown = 15,
+            PreviewingButtonUp = 16,
+            LAST = 17,
         };
 
         // Must be kept in sync with enum ActionID
@@ -517,6 +545,8 @@ namespace RRLightProgram
             new StateMachineAction(ActionRRRunning),
             new StateMachineAction(ActionNotQueuedButtonDown),
             new StateMachineAction(ActionNotQueuedButtonUp),
+            new StateMachineAction(StateMachine.ActionPreviewingButtonDown),
+            new StateMachineAction(StateMachine.ActionPreviewingButtonUp), 
             new StateMachineAction(ActionLast),
         };
 
@@ -556,8 +586,8 @@ namespace RRLightProgram
                 new Transition(RRS.RRPreviewing,       StateMachineInput.Disconnected,                  ActionId.FaultDisconnect,       RRS.RRDisconnected),
                 new Transition(RRS.RRPreviewing,       StateMachineInput.ButtonPressed,                 ActionId.Noop,                  RRS.RRPreviewing),
                 new Transition(RRS.RRPreviewing,       StateMachineInput.ButtonHeld,                    ActionId.New,                   RRS.RRRecordingWait),
-                new Transition(RRS.RRPreviewing,       StateMachineInput.ButtonDown,                    ActionId.CantRecordButtonDown,   RRS.RRPreviewing),
-                new Transition(RRS.RRPreviewing,       StateMachineInput.ButtonUp,                      ActionId.CantRecordButtonUp,     RRS.RRPreviewing),
+                new Transition(RRS.RRPreviewing,       StateMachineInput.ButtonDown,                    ActionId.PreviewingButtonDown,  RRS.RRPreviewing),
+                new Transition(RRS.RRPreviewing,       StateMachineInput.ButtonUp,                      ActionId.PreviewingButtonUp,    RRS.RRPreviewing),
             },
             {
                 new Transition(RRS.RRPreviewingQueued, StateMachineInput.NoInput,                       ActionId.Noop,                  RRS.RRPreviewingQueued),
