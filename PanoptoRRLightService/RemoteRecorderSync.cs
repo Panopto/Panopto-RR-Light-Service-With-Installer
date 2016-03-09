@@ -3,6 +3,8 @@ using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Diagnostics;
+using System.Linq;
+using System.Reflection;
 using System.ServiceModel;
 using System.ServiceProcess;
 using System.Threading;
@@ -19,6 +21,17 @@ namespace RRLightProgram
         private IRemoteRecorderController controller;
         private bool shouldStop = false;
         private MainAppLogic.EnqueueStateMachineInput stateMachineInputCallback;
+        public Version RemoteRecorderVersion { get; private set; }
+
+        //Property to determine whether the current version of the remote recorder supports starting a new recording.
+        public bool SupportsStartNewRecording
+        {
+            get
+            {
+                return this.RemoteRecorderVersion != null &&
+                       this.RemoteRecorderVersion.CompareTo(Version.Parse("5.0")) >= 0;
+            }
+        }
 
         /// <summary>
         ///     Constructor
@@ -26,15 +39,34 @@ namespace RRLightProgram
         /// <param name="stateMachineInputCallback"></param>
         public RemoteRecorderSync(MainAppLogic.EnqueueStateMachineInput stateMachineInputCallback)
         {
+            RemoteRecorderVersion = null;
             SetUpController();
 
             this.stateMachineInputCallback = stateMachineInputCallback;
+
+            try
+            {
+                //Try to get the current remote recorder version number
+                Process result = Process.GetProcessesByName("RemoteRecorder").FirstOrDefault();
+                if (result != null)
+                {
+                    AssemblyName an = AssemblyName.GetAssemblyName(result.MainModule.FileName);
+                    this.RemoteRecorderVersion = an.Version;
+                }
+            }
+            catch
+            {
+                //If we fail to get the RR version, set it to 4.9.0 by default.
+                this.RemoteRecorderVersion = Version.Parse("4.9.0");
+            }
 
             //Start background thread to listen for input from recorder
             BackgroundWorker bgw = new BackgroundWorker();
             bgw.DoWork += delegate { BackgroundPollingWorker(); };
             bgw.RunWorkerAsync();
         }
+
+
 
         // Stop the background thread
         public void Stop()
@@ -235,7 +267,7 @@ namespace RRLightProgram
                      * exception and return to this loop, so it's safe.
                      */
                     Thread.Sleep(RRServiceSetupInterval);
-                    
+
                     SetUpController();
                 }
             }
