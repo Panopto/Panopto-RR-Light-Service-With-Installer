@@ -1,5 +1,7 @@
 # Panopto Remote Recorder Light and Serial Service
 
+Download the installable service here: https://github.com/uw-it-cte/Panopto-RR-Light-Service-With-Installer/releases/latest
+
 ## Light Button
 
 See http://support.panopto.com/documentation/recording/remote-recorder/utilizing-remote-recorder-usb-visual-signal-indicator
