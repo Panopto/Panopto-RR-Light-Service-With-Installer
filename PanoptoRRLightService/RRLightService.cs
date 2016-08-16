@@ -120,14 +120,6 @@ namespace RRLightProgram
 
                 if (argsToProcess != null)
                 {
-                    if (Program.RunFromConsole)
-                    {
-                        Trace.TraceInformation(DateTime.Now + ": Processing input: ");
-                        Trace.TraceInformation(DateTime.Now + ": " + argsToProcess.Input.ToString() + " " +
-                                               DateTime.UtcNow.ToString("HH:mm:ss.fff", CultureInfo.InvariantCulture));
-                        Trace.Flush();
-                    }
-
                     // send the input to the state machine
                     sm.ProcessStateMachineInput(argsToProcess);
                 }
@@ -141,11 +133,9 @@ namespace RRLightProgram
 
         private void AddInputToStateMachineQueue(StateMachine.StateMachineInputArgs input)
         {
-            if (Program.RunFromConsole)
+            if (Program.RunFromConsole) // Verbose trace output only for console mode.
             {
-                Trace.TraceInformation(DateTime.Now + ": Detected input: ");
-                Trace.TraceInformation(DateTime.Now + ": " + input.Input.ToString() + " " + DateTime.UtcNow.ToString("HH:mm:ss.fff", CultureInfo.InvariantCulture));
-                Trace.Flush();
+                Trace.TraceInformation("Detected input: {0}", input.Input);
             }
 
             lock (stateMachineInputQueue)

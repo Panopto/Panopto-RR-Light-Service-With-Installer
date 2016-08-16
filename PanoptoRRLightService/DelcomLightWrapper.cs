@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Text;
 using System.Threading;
 
@@ -7,12 +8,24 @@ namespace RRLightProgram
 {
     internal class DelcomLightWrapper
     {
-        private const int LEDWaitTime = 150;//pretty arbitrary, stops all observed failures and not too noticable a delay
-        private const int LEDMaxFailures = 5;//also somewhat arbitrary; should be adjusted after testing
+        /// <summary>
+        /// Interval before retrying LED control call.
+        /// </summary>
+        private static readonly TimeSpan LEDRetryInterval = new TimeSpan(0, 0, 0, 0, 500);
+
+        /// <summary>
+        /// Maximum number of retries when LED control call fails.
+        /// </summary>
+        private const int LEDMaxRetries = 10;
+
+        /// <summary>
+        /// Interval when retrying to detect the connected device.
+        /// </summary>
+        private static readonly TimeSpan DeviceConnectionPollingInterval = new TimeSpan(0, 0, 5);
 
         // NOTE: These must stay in sync with DelcomDll.*LED values
         // We only include yellow (not blue) because their byte value is the same
-        // Assume all are on to begin with so that we can turn them off
+        // Assume all are on to begin with so that we can turn them off at initialization.
         private static Dictionary<LightColors, LightStates> CurrentLEDStates = new Dictionary<LightColors, LightStates>
             {
                 { LightColors.Green, LightStates.On },
@@ -45,17 +58,24 @@ namespace RRLightProgram
             Unknown = 2,
         }
 
+        /// <summary>
+        /// Return the handle value to represent the connected device.
+        /// </summary>
+        /// <returns>Non-0 for the opened device. 0 if any device is not opened.</returns>
         public static uint OpenDelcomDevice()
         {
-            int Result;
-            uint hUSB;
+            int found;
+            uint hUSB = 0;
             StringBuilder DeviceName = new StringBuilder(Delcom.MAXDEVICENAMELEN);
 
             // Search for the first match USB device, For USB IO Chips use Delcom.USBIODS
             // With Generation 2 HID devices, you can pass a TypeId of 0 to open any Delcom device.
-            Result = Delcom.DelcomGetNthDevice(Delcom.USBDELVI, 0, DeviceName);
+            found = Delcom.DelcomGetNthDevice(Delcom.USBDELVI, 0, DeviceName);
 
-            hUSB = Delcom.DelcomOpenDevice(DeviceName, 0);                      // open the device
+            if (found > 0)
+            {
+                hUSB = Delcom.DelcomOpenDevice(DeviceName, 0);
+            }
 
             return hUSB;
         }
@@ -81,7 +101,7 @@ namespace RRLightProgram
                 }
                 else
                 {
-                    for (int i = 0; i < LEDMaxFailures; i++)
+                    for (int i = 0; i < DelcomLightWrapper.LEDMaxRetries; i++)
                     {
                         if (Delcom.DelcomLEDControl(hUSB, (byte)color, (byte)action) == 0)
                         {
@@ -91,7 +111,9 @@ namespace RRLightProgram
                         }
                         else
                         {
-                            System.Threading.Thread.Sleep(LEDWaitTime);
+                            // Not to log each failure because a) API does not provide any error detail and
+                            // b) caller will make an error log if all retries fail.
+                            System.Threading.Thread.Sleep(DelcomLightWrapper.LEDRetryInterval);
                         }
                     }
                 }
@@ -125,7 +147,7 @@ namespace RRLightProgram
                 }
                 else
                 {
-                    for (int i = 0; i < LEDMaxFailures; i++)
+                    for (int i = 0; i < DelcomLightWrapper.LEDMaxRetries; i++)
                     {
                         List<LightColors> lightsFailed = new List<LightColors>();
 
@@ -137,6 +159,8 @@ namespace RRLightProgram
                             }
                             else
                             {
+                                // Not to log each failure because a) API does not provide any error detail and
+                                // b) caller will make an error log if all retries fail.
                                 lightsFailed.Add(remainingLight);
                             }
                         }
@@ -148,7 +172,7 @@ namespace RRLightProgram
                         }
 
                         lightsRemaining = lightsFailed;
-                        System.Threading.Thread.Sleep(LEDWaitTime);
+                        System.Threading.Thread.Sleep(DelcomLightWrapper.LEDRetryInterval);
                     }
                 }
             }
@@ -196,7 +220,8 @@ namespace RRLightProgram
                 if (hUSB == 0)
                 {
                     //If no light found, wait for a second and then try to open again.
-                    Thread.Sleep(1000);
+                    Trace.TraceWarning(@"Delcom device is not found. Sleep {0} and retry.", DelcomLightWrapper.DeviceConnectionPollingInterval);
+                    Thread.Sleep(DelcomLightWrapper.DeviceConnectionPollingInterval);
                 }
                 else
                 {

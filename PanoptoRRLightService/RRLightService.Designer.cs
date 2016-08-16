@@ -28,8 +28,12 @@
         /// </summary>
         private void InitializeComponent()
         {
-            components = new System.ComponentModel.Container();
-            this.ServiceName = "Service1";
+            // 
+            // RRLightService
+            // 
+            this.AutoLog = false;
+            this.ServiceName = "PanoptoRRLightService";
+
         }
 
         #endregion

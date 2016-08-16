@@ -477,26 +477,21 @@ namespace RRLightProgram
                 Trace.Assert(transition.currentState == m_SMState);
                 Trace.Assert(transition.input == inputArgs.Input);
                 Trace.Assert(transition.actionId < ActionId.LAST);
-
-                Trace.TraceInformation(DateTime.Now + ": SM State:" + m_SMState.ToString());
-                Trace.TraceInformation(DateTime.Now + ": SM Input:" + inputArgs.Input.ToString());
-                Trace.Flush();
             }
 
             StateMachineAction action = m_actionTable[(int)transition.actionId];
 
+            Trace.TraceInformation("Action:{0} by Input:{1} State:{2}->{3}", transition.actionId, inputArgs.Input, m_SMState, transition.newState);
             if (action(this, State, inputArgs))
             {
                 m_SMState = transition.newState;
             }
+            else
+            {
+                Trace.TraceError("Action {0} failed. State stays at {1}", transition.actionId, m_SMState);
+            }
 
             m_lastStateMachineInput = inputArgs.Input;
-
-            if (Program.RunFromConsole)
-            {
-                Trace.TraceInformation(DateTime.Now + ": SM NewState:" + m_SMState.ToString());
-                Trace.Flush();
-            }
         }
 
         #endregion Methods

@@ -79,8 +79,7 @@ namespace RRLightProgram
                 {
                     if (!DelcomLightWrapper.DelcomLEDAllAction(this.hUSB, DelcomLightWrapper.LightStates.Off) && Program.RunFromConsole)
                     {
-                        Trace.TraceInformation(DateTime.Now + ": LED failure: all off");
-                        Trace.Flush();
+                        Trace.TraceError("LED failure: all off");
                     }
                 }
                 else
@@ -93,14 +92,13 @@ namespace RRLightProgram
 
                     if (!DelcomLightWrapper.DelcomLEDAllAction(this.hUSB, DelcomLightWrapper.LightStates.Off) && Program.RunFromConsole)
                     {
-                        Trace.TraceInformation(DateTime.Now + ": LED failure: all off");
-                        Trace.Flush();
+                        Trace.TraceError("LED failure: all off");
                     }
                     if (!DelcomLightWrapper.DelcomLEDAction(this.hUSB, color, action) && Program.RunFromConsole)
                     {
-                        Trace.TraceInformation(DateTime.Now + ": LED failure: " + Enum.GetName(typeof(DelcomLightWrapper.LightColors), color) + 
-                                                " " + Enum.GetName(typeof(DelcomLightWrapper.LightStates), action));
-                        Trace.Flush();
+                        Trace.TraceError("LED failure: {0} {1}",
+                            Enum.GetName(typeof(DelcomLightWrapper.LightColors), color),
+                            Enum.GetName(typeof(DelcomLightWrapper.LightStates), action));
                     }
 
                     // We need to only have the light on for the requested duration
@@ -124,8 +122,7 @@ namespace RRLightProgram
                                 // Only turn the light off if they still match, otherwise we've moved on to a new action
                                 if (!DelcomLightWrapper.DelcomLEDAllAction(this.hUSB, DelcomLightWrapper.LightStates.Off) && Program.RunFromConsole)
                                 {
-                                    Trace.TraceInformation(DateTime.Now + ": LED failure: all off");
-                                    Trace.Flush();
+                                    Trace.TraceError("LED failure: all off");
                                 }
                             }
                             else
