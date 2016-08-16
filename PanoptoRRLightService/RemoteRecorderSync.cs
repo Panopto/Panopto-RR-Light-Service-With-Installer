@@ -20,17 +20,9 @@ namespace RRLightProgram
         private IRemoteRecorderController controller;
         private bool shouldStop = false;
         private MainAppLogic.EnqueueStateMachineInput stateMachineInputCallback;
-        public Version RemoteRecorderVersion { get; private set; }
 
         //Property to determine whether the current version of the remote recorder supports starting a new recording.
-        public bool SupportsStartNewRecording
-        {
-            get
-            {
-                return this.RemoteRecorderVersion != null &&
-                       this.RemoteRecorderVersion.CompareTo(Version.Parse("5.0")) >= 0;
-            }
-        }
+        public bool SupportsStartNewRecording { get; private set; }
 
         /// <summary>
         ///     Constructor
@@ -38,7 +30,6 @@ namespace RRLightProgram
         /// <param name="stateMachineInputCallback"></param>
         public RemoteRecorderSync(MainAppLogic.EnqueueStateMachineInput stateMachineInputCallback)
         {
-            RemoteRecorderVersion = null;
             SetUpController();
 
             this.stateMachineInputCallback = stateMachineInputCallback;
@@ -47,16 +38,22 @@ namespace RRLightProgram
             {
                 //Try to get the current remote recorder version number
                 Process result = Process.GetProcessesByName("RemoteRecorder").FirstOrDefault();
-                if (result != null)
+                if (result == null)
                 {
-                    AssemblyName an = AssemblyName.GetAssemblyName(result.MainModule.FileName);
-                    this.RemoteRecorderVersion = an.Version;
+                    throw new ApplicationException("Remote recoder process is not running.");
                 }
+                AssemblyName an = AssemblyName.GetAssemblyName(result.MainModule.FileName);
+                if (an == null || an.Version == null)
+                {
+                    throw new ApplicationException("Remote recoder assembly name is not accessible.");
+                }
+                this.SupportsStartNewRecording = (an.Version.CompareTo(Version.Parse("5.0")) >= 0);
             }
-            catch
+            catch (Exception e)
             {
-                //If we fail to get the RR version, set it to 4.9.0 by default.
-                this.RemoteRecorderVersion = Version.Parse("4.9.0");
+                // If we fail to get the RR version, assuming it is 5.0.0 or above.
+                Trace.TraceWarning(@"Failed to get remote recoder version. Assuming 5.0.0+. {0}", e);
+                this.SupportsStartNewRecording = true;
             }
 
             //Start background thread to listen for input from recorder
@@ -276,8 +273,7 @@ namespace RRLightProgram
 
                 if (Program.RunFromConsole)
                 {
-                    Trace.TraceInformation(DateTime.Now + ": Error calling remote recorder process: {0}", e);
-                    Trace.Flush();
+                    Trace.TraceError("Error calling remote recorder process: {0}", e);
                 }
             }
         }
