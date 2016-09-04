@@ -85,5 +85,14 @@ namespace RRLightProgram.Properties {
                 return ((global::System.TimeSpan)(this["PressDuration"]));
             }
         }
+        
+        [global::System.Configuration.ApplicationScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("False")]
+        public bool EnableVerboseTrace {
+            get {
+                return ((bool)(this["EnableVerboseTrace"]));
+            }
+        }
     }
 }

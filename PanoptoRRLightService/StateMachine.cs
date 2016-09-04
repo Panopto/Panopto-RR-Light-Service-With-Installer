@@ -472,12 +472,10 @@ namespace RRLightProgram
         {
             Transition transition = m_transitionTable[(int)m_SMState,
                                                           (int)inputArgs.Input];
-            if (Program.RunFromConsole)
-            {
-                Trace.Assert(transition.currentState == m_SMState);
-                Trace.Assert(transition.input == inputArgs.Input);
-                Trace.Assert(transition.actionId < ActionId.LAST);
-            }
+
+            Trace.Assert(transition.currentState == m_SMState);
+            Trace.Assert(transition.input == inputArgs.Input);
+            Trace.Assert(transition.actionId < ActionId.LAST);
 
             StateMachineAction action = m_actionTable[(int)transition.actionId];
 

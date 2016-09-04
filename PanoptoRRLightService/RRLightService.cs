@@ -12,10 +12,15 @@ namespace RRLightProgram
 {
     public partial class RRLightService : ServiceBase
     {
-        private static bool SELF_SIGNED = true; // Target server is a self-signed server
-        private static bool initialized = false;
-        private static MainAppLogic mal;
-        private Thread MainThread;
+        /// <summary>
+        /// We accept the self signed server by overriding in ServerCertificateValidationCallback.
+        /// </summary>
+        private const bool SelfSignedServer = true;
+        
+        private static bool serverCertificateValidationCallbackIsSet = false;
+
+        private MainLogic mainLogic = null;
+        private Thread mainThread = null;
 
         public RRLightService()
         {
@@ -23,32 +28,37 @@ namespace RRLightProgram
         }
 
         /// <summary>
-        ///     Manually run the service to support console debugging
+        /// Manually run the application for testing.
         /// </summary>
         public void ManualRun()
         {
             this.OnStart(null);
         }
 
+        /// <summary>
+        /// Start handler.
+        /// MSDN documentaion recommends not to rely on args in general.
+        /// We use config file for any parameters and ignore command line args.
+        /// </summary>
+        /// <param name="args"></param>
         protected override void OnStart(string[] args)
         {
-            if (SELF_SIGNED)
-            {
-                // For self-signed servers
-                EnsureCertificateValidation();
-            }
+            EnsureCertificateValidation();
 
-            // TODO: Parse args if necessary
-
-            mal = new MainAppLogic();
-            MainThread = new Thread(new ThreadStart(mal.Main));
-            MainThread.Start();
+            this.mainLogic = new MainLogic();
+            this.mainThread = new Thread(new ThreadStart(mainLogic.ThreadMethod));
+            this.mainThread.Start();
         }
 
+        /// <summary>
+        /// Stop handler. Waits for worker thread to stop.
+        /// </summary>
         protected override void OnStop()
         {
-            mal.Stop();
-            MainThread.Abort();
+            this.mainLogic.Stop();
+            this.mainThread.Join();
+            this.mainThread = null;
+            this.mainLogic = null;
         }
 
         /// <summary>
@@ -56,10 +66,10 @@ namespace RRLightProgram
         /// </summary>
         public static void EnsureCertificateValidation()
         {
-            if (!initialized)
+            if (RRLightService.SelfSignedServer && !RRLightService.serverCertificateValidationCallbackIsSet)
             {
                 ServicePointManager.ServerCertificateValidationCallback += new System.Net.Security.RemoteCertificateValidationCallback(CustomCertificateValidation);
-                initialized = true;
+                serverCertificateValidationCallbackIsSet = true;
             }
         }
 
@@ -69,84 +79,6 @@ namespace RRLightProgram
         private static bool CustomCertificateValidation(object sender, X509Certificate cert, X509Chain chain, System.Net.Security.SslPolicyErrors error)
         {
             return true;
-        }
-    }
-
-    public class MainAppLogic
-    {
-        //Boolean used for stopping thread loop
-        private bool shouldStop = false;
-
-        //Initialize queue for events to input into statemachine
-        private Queue<StateMachine.StateMachineInputArgs> stateMachineInputQueue = new Queue<StateMachine.StateMachineInputArgs>();
-
-        //Initialize threshold for button hold from settings to pass into light.
-
-
-        // Delegate for the light and the RR to callback to add statemachine input to the queue (in a threadsafe manner)
-        public delegate void EnqueueStateMachineInput(StateMachine.StateMachineInputArgs input);
-
-        /// <summary>
-        ///     Program main loop
-        /// </summary>
-        public void Main()
-        {
-            //Create new DelcomLight object and start it's thread to listen for input from the button
-            DelcomLight dLight = new DelcomLight(new EnqueueStateMachineInput(this.AddInputToStateMachineQueue),
-                                       RRLightProgram.Properties.Settings.Default.HoldDuration);
-
-            //Create new remote recorder sync object to poll recorder state and input changes into state machine
-            RemoteRecorderSync rSync = new RemoteRecorderSync(new EnqueueStateMachineInput(this.AddInputToStateMachineQueue));
-
-            //Initialize state machine. Pass in Light and RemoteRecorder
-            StateMachine sm = new StateMachine(dLight, rSync);
-
-            // Main thread loop
-            // Loop endlessly until we're asked to stop
-            while (!this.shouldStop)
-            {
-                StateMachine.StateMachineInputArgs argsToProcess = null;
-
-                // lock only while we're inspecting and changing the queue
-                lock (stateMachineInputQueue)
-                {
-                    // if the queue has anything, then work on it
-                    if (stateMachineInputQueue.Any())
-                    {
-                        // dequeue
-                        argsToProcess = stateMachineInputQueue.Dequeue();
-                    }
-                }
-
-                if (argsToProcess != null)
-                {
-                    // send the input to the state machine
-                    sm.ProcessStateMachineInput(argsToProcess);
-                }
-                else
-                {
-                    // else sleep
-                    Thread.Sleep(50);
-                }
-            }
-        }
-
-        private void AddInputToStateMachineQueue(StateMachine.StateMachineInputArgs input)
-        {
-            if (Program.RunFromConsole) // Verbose trace output only for console mode.
-            {
-                Trace.TraceInformation("Detected input: {0}", input.Input);
-            }
-
-            lock (stateMachineInputQueue)
-            {
-                stateMachineInputQueue.Enqueue(input);
-            }
-        }
-
-        public void Stop()
-        {
-            shouldStop = true;
         }
     }
 }

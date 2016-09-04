@@ -24,7 +24,7 @@ namespace RRLightProgram
     public class DelcomLight
     {
         public uint hUSB;
-        private MainAppLogic.EnqueueStateMachineInput stateMachineInputCallback;
+        private MainLogic.EnqueueStateMachineInput stateMachineInputCallback;
         private int changeColorRequestId = 0;
         private bool shouldStop = false;
         private TimeSpan holdThreshold;
@@ -33,7 +33,7 @@ namespace RRLightProgram
         ///     Constructor
         /// </summary>
         /// <param name="stateMachineInputCallback">delegate to call when there's an event to report</param>
-        public DelcomLight(MainAppLogic.EnqueueStateMachineInput stateMachineInputCallback, TimeSpan holdTime)
+        public DelcomLight(MainLogic.EnqueueStateMachineInput stateMachineInputCallback, TimeSpan holdTime)
         {
             hUSB = DelcomLightWrapper.TryOpeningDelcomDevice();
 
@@ -77,7 +77,7 @@ namespace RRLightProgram
 
                 if (inputColor == DelcomColor.Off)
                 {
-                    if (!DelcomLightWrapper.DelcomLEDAllAction(this.hUSB, DelcomLightWrapper.LightStates.Off) && Program.RunFromConsole)
+                    if (!DelcomLightWrapper.DelcomLEDAllAction(this.hUSB, DelcomLightWrapper.LightStates.Off))
                     {
                         Trace.TraceError("LED failure: all off");
                     }
@@ -90,11 +90,11 @@ namespace RRLightProgram
                     DelcomLightWrapper.LightStates action = steady ? DelcomLightWrapper.LightStates.On
                                                                    : DelcomLightWrapper.LightStates.Flash;
 
-                    if (!DelcomLightWrapper.DelcomLEDAllAction(this.hUSB, DelcomLightWrapper.LightStates.Off) && Program.RunFromConsole)
+                    if (!DelcomLightWrapper.DelcomLEDAllAction(this.hUSB, DelcomLightWrapper.LightStates.Off))
                     {
                         Trace.TraceError("LED failure: all off");
                     }
-                    if (!DelcomLightWrapper.DelcomLEDAction(this.hUSB, color, action) && Program.RunFromConsole)
+                    if (!DelcomLightWrapper.DelcomLEDAction(this.hUSB, color, action))
                     {
                         Trace.TraceError("LED failure: {0} {1}",
                             Enum.GetName(typeof(DelcomLightWrapper.LightColors), color),
@@ -120,7 +120,7 @@ namespace RRLightProgram
                             if (currentButtonAction == rememberedButtonAction)
                             {
                                 // Only turn the light off if they still match, otherwise we've moved on to a new action
-                                if (!DelcomLightWrapper.DelcomLEDAllAction(this.hUSB, DelcomLightWrapper.LightStates.Off) && Program.RunFromConsole)
+                                if (!DelcomLightWrapper.DelcomLEDAllAction(this.hUSB, DelcomLightWrapper.LightStates.Off))
                                 {
                                     Trace.TraceError("LED failure: all off");
                                 }

@@ -19,7 +19,7 @@ namespace RRLightProgram
 
         private IRemoteRecorderController controller;
         private bool shouldStop = false;
-        private MainAppLogic.EnqueueStateMachineInput stateMachineInputCallback;
+        private MainLogic.EnqueueStateMachineInput stateMachineInputCallback;
 
         //Property to determine whether the current version of the remote recorder supports starting a new recording.
         public bool SupportsStartNewRecording { get; private set; }
@@ -28,7 +28,7 @@ namespace RRLightProgram
         ///     Constructor
         /// </summary>
         /// <param name="stateMachineInputCallback"></param>
-        public RemoteRecorderSync(MainAppLogic.EnqueueStateMachineInput stateMachineInputCallback)
+        public RemoteRecorderSync(MainLogic.EnqueueStateMachineInput stateMachineInputCallback)
         {
             SetUpController();
 
@@ -270,11 +270,7 @@ namespace RRLightProgram
             else
             {
                 // Log and continue; problem could be temporary
-
-                if (Program.RunFromConsole)
-                {
-                    Trace.TraceError("Error calling remote recorder process: {0}", e);
-                }
+                Trace.TraceError("Error calling remote recorder process: {0}", e);
             }
         }
 
