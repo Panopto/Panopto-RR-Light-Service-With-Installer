@@ -25,7 +25,6 @@ namespace RRLightProgram
         /// </summary>
         private IRemoteRecorderController controller;
 
-
         private bool shouldStop = false;
 
         /// <summary>
@@ -221,31 +220,6 @@ namespace RRLightProgram
             return result;
         }
 
-        /// <summary>
-        /// Extend the current recording
-        /// </summary>
-        /// <returns>true on success</returns>
-        public bool ExtendCurrentRecording()
-        {
-            bool result = false;
-
-            try
-            {
-                RemoteRecorderState state = this.controller.GetCurrentState();
-                if (state.CurrentRecording != null)
-                {
-                    this.controller.ExtendCurrentRecording(state.CurrentRecording.Id);
-                    result = true;
-                }
-            }
-            catch (Exception e)
-            {
-                this.HandleRRException(e, false);
-            }
-
-            return result;
-        }
-
         #endregion Public methods to take action against Remote Recorder
 
         #region Helper methods
@@ -324,7 +298,7 @@ namespace RRLightProgram
                 // If state changed, post the new state to the state machine.
                 if (stateAsInput != previousStateAsInput)
                 {
-                    if (stateAsInput != Input.NoInput)
+                    if (stateAsInput != Input.None)
                     {
                         this.stateMachine.PostInput(stateAsInput);
                     }
@@ -358,17 +332,17 @@ namespace RRLightProgram
                     return Input.RecorderRecording;
 
                 case RemoteRecorderStatus.RecorderRunning:
-                    return Input.RecorderRunning;
+                    return Input.RecorderDormant;
 
                 case RemoteRecorderStatus.Previewing:
                     Recording nextRecording = controller.GetNextRecording();
                     if (nextRecording != null)
                     {
-                        return Input.RecorderPreviewingQueued;
+                        return Input.RecorderPreviewingWithNextSchedule;
                     }
                     else
                     {
-                        return Input.RecorderPreviewing;
+                        return Input.RecorderPreviewingNoNextSchedule;
                     }
 
                 case RemoteRecorderStatus.Paused:
@@ -378,10 +352,10 @@ namespace RRLightProgram
                     return Input.RecorderFaulted;
 
                 case RemoteRecorderStatus.Disconnected:
-                    return Input.Disconnected;
+                    return Input.RecorderDisconnected;
 
                 default:
-                    return Input.NoInput;
+                    return Input.None;
             }
         }
 

@@ -30,56 +30,64 @@ namespace RRLightProgram
     /// </summary>
     public enum State
     {
-        Init = 0,
-        RRPreviewing = 1,
-        RRPreviewingQueued = 2,
-        RRRecordingWait = 3,
-        RRRecording = 4,
-        RRPausedWait = 5,
-        RRPaused = 6,
-        RRStoppingPaused = 7,
-        RRStoppingRecord = 8,
-        RRStopped = 9,
-        RRRunning = 10,
-        RRFaulted = 11,
-        RRDisconnected = 12,
+        Init,
+        PreviewingNoNextSchedule,
+        PreviewingWithNextSchedule,
+        TransitionAnyToRecording,
+        Recording,
+        TransitionRecordingToPause,
+        Paused,
+        TransitionPausedToStop,
+        TransitionRecordingToStop,
+        Stopped,
+        Dormant,
+        Faulted,
+        Disconnected,
     }
 
     /// <summary>
-    ///  List of the inputs that the state machine accepts.
+    /// List of the inputs that the state machine accepts.
     /// </summary>
     public enum Input
     {
-        NoInput = 0,
-        RecorderPreviewing = 1,
-        RecorderRecording = 2,
-        RecorderPaused = 3,
-        RecorderFaulted = 4,
-        RecorderPreviewingQueued = 5,
-        RecorderStopped = 6,
-        RecorderRunning = 7,
-        Disconnected = 8,
+        None,
+
+        RecorderPreviewingNoNextSchedule,
+        RecorderPreviewingWithNextSchedule,
+        RecorderRecording,
+        RecorderPaused,
+        RecorderStopped,
 
         /// <summary>
-        /// The button was pressed for less time than the threshold for holding, and is now up, resulting in a full click.
+        /// Recoder may be in a state that is running, but not recording or previewing.
+        /// It may happen in a situation, for example, Windows Recorder takes the control
+        /// of recording component and Remote Recorder may not take any action.
         /// </summary>
-        ButtonPressed = 9,
+        RecorderDormant,
+
+        RecorderFaulted,
+        RecorderDisconnected,
+
+        /// <summary>
+        /// The button was pressed for less time than the threshold for holding, and is now up.
+        /// This results in a full click.
+        /// </summary>
+        ButtonPressed,
 
         /// <summary>
         /// The button was held down for longer than the hold threshold.
+        /// After this is fired, ButtonPressed must not fired when the button is up.
         /// </summary>
-        ButtonHeld = 10,
+        ButtonHeld,
 
         /// <summary>
         /// The button is pressed down, regardless it's 'pressed' or 'held'.
-        /// Note that this input is used only to turn the red light on to indicate that no recordings are queued while previewing.
         /// </summary>
-        ButtonDown = 11,
+        ButtonDown,
 
         /// <summary>
         /// The button is pressed released, regardless it's 'pressed' or 'held'.
-        /// Note that this input is used only turn the red light off which indicate that no recordings are queued while previewing.
         /// </summary>
-        ButtonUp = 12,
+        ButtonUp,
     }
 }
