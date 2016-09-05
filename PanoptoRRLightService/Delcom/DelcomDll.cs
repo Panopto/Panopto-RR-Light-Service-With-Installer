@@ -21,7 +21,7 @@ namespace CS_NET_DLL
     {
         static void Main(string[] args)
         {
-            uint hUSB;
+            uint deviceHandle;
             int Result;
             StringBuilder DeviceName = new StringBuilder(Delcom.MAXDEVICENAMELEN);
 
@@ -37,9 +37,9 @@ namespace CS_NET_DLL
             Console.WriteLine("Delcom C# Example Program.");
             Console.WriteLine("Device found: "+ DeviceName );
 
-            hUSB = Delcom.DelcomOpenDevice(DeviceName, 0);                      // open the device
-            Delcom.DelcomLEDControl(hUSB, Delcom.GREENLED, Delcom.LEDON);    // blink the green led
-            Delcom.DelcomCloseDevice(hUSB);                                     // close the device
+            deviceHandle = Delcom.DelcomOpenDevice(DeviceName, 0);                      // open the device
+            Delcom.DelcomLEDControl(deviceHandle, Delcom.GREENLED, Delcom.LEDON);    // blink the green led
+            Delcom.DelcomCloseDevice(deviceHandle);                                     // close the device
 
             while (!Console.KeyAvailable) ;                                     // wait for any key
         }

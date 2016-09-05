@@ -25,73 +25,64 @@ namespace RRLightProgram.Properties {
         
         [global::System.Configuration.ApplicationScopedSettingAttribute()]
         [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
-        [global::System.Configuration.DefaultSettingValueAttribute("50")]
-        public int LightPollingIntervalMS {
+        [global::System.Configuration.DefaultSettingValueAttribute("00:00:00.1000000")]
+        public global::System.TimeSpan DelcomButtonPollingInterval {
             get {
-                return ((int)(this["LightPollingIntervalMS"]));
-            }
-        }
-        
-        [global::System.Configuration.ApplicationScopedSettingAttribute()]
-        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
-        [global::System.Configuration.DefaultSettingValueAttribute("net.pipe://localhost/PanoptoRemoteRecorder/Controller")]
-        public global::System.Uri ControllerEndpoint {
-            get {
-                return ((global::System.Uri)(this["ControllerEndpoint"]));
+                return ((global::System.TimeSpan)(this["DelcomButtonPollingInterval"]));
             }
         }
         
         [global::System.Configuration.ApplicationScopedSettingAttribute()]
         [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
         [global::System.Configuration.DefaultSettingValueAttribute("False")]
-        public bool LightSupportsYellow {
+        public bool DelcomLightSupportsYellow {
             get {
-                return ((bool)(this["LightSupportsYellow"]));
+                return ((bool)(this["DelcomLightSupportsYellow"]));
             }
         }
         
         [global::System.Configuration.ApplicationScopedSettingAttribute()]
         [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
-        [global::System.Configuration.DefaultSettingValueAttribute("100")]
-        public int RecorderPollingIntervalMS {
+        [global::System.Configuration.DefaultSettingValueAttribute("00:00:00.5000000")]
+        public global::System.TimeSpan RecorderPollingInterval {
             get {
-                return ((int)(this["RecorderPollingIntervalMS"]));
+                return ((global::System.TimeSpan)(this["RecorderPollingInterval"]));
             }
         }
         
         [global::System.Configuration.ApplicationScopedSettingAttribute()]
         [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
-        [global::System.Configuration.DefaultSettingValueAttribute("00:00:05")]
-        public global::System.TimeSpan HoldDuration {
+        [global::System.Configuration.DefaultSettingValueAttribute("00:00:03")]
+        public global::System.TimeSpan DelcomButtonHoldThreshold {
             get {
-                return ((global::System.TimeSpan)(this["HoldDuration"]));
-            }
-        }
-        
-        [global::System.Configuration.ApplicationScopedSettingAttribute()]
-        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
-        [global::System.Configuration.DefaultSettingValueAttribute("300")]
-        public int MintimeBetweenClicksMilliseconds {
-            get {
-                return ((int)(this["MintimeBetweenClicksMilliseconds"]));
+                return ((global::System.TimeSpan)(this["DelcomButtonHoldThreshold"]));
             }
         }
         
         [global::System.Configuration.ApplicationScopedSettingAttribute()]
         [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
         [global::System.Configuration.DefaultSettingValueAttribute("00:00:00.3000000")]
-        public global::System.TimeSpan PressDuration {
+        public global::System.TimeSpan DelcomButtonIgnoreAfterButtonUp {
             get {
-                return ((global::System.TimeSpan)(this["PressDuration"]));
+                return ((global::System.TimeSpan)(this["DelcomButtonIgnoreAfterButtonUp"]));
             }
         }
         
         [global::System.Configuration.ApplicationScopedSettingAttribute()]
         [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
-        [global::System.Configuration.DefaultSettingValueAttribute("False")]
+        [global::System.Configuration.DefaultSettingValueAttribute("True")]
         public bool EnableVerboseTrace {
             get {
                 return ((bool)(this["EnableVerboseTrace"]));
+            }
+        }
+        
+        [global::System.Configuration.ApplicationScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("Delcom")]
+        public string DeviceType {
+            get {
+                return ((string)(this["DeviceType"]));
             }
         }
     }
