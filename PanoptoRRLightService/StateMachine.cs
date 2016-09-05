@@ -173,7 +173,7 @@ namespace RRLightProgram
                 }
                 else
                 {
-                    Trace.TraceInformation("No transition for Input:{0} State:{1})", input, this.state);
+                    TraceVerbose.Trace("No transition for Input:{0} State:{1})", input, this.state);
                 }
             }
         }
