@@ -6,195 +6,229 @@ using System.Threading;
 
 namespace RRLightProgram
 {
+    /// <summary>
+    /// This class is in the middle of Delcom light logic and Delcom provided DLL APIs,
+    /// and provides the retry and device reconnection underneath.
+    /// This finds a Delcom light device in the system. If mutliple devices exist, pick one of them randomly.
+    /// Construction fails if no device is found.
+    /// Once it's constructed, it continues to try reconnecting when disconnection is found.
+    /// </summary>
     internal class DelcomLightWrapper
     {
-        /// <summary>
-        /// Interval before retrying LED control call.
-        /// </summary>
-        private static readonly TimeSpan LEDRetryInterval = new TimeSpan(0, 0, 0, 0, 500);
+        #region Variables and Constants
 
         /// <summary>
-        /// Maximum number of retries when LED control call fails.
+        /// Delcom DLL uses 0 as invalid handle.
         /// </summary>
-        private const int LEDMaxRetries = 10;
+        private const uint InvalidDevcieHandle = 0;
 
         /// <summary>
-        /// Interval when retrying to detect the connected device.
+        /// Device handle to which we currently access.
+        /// This may be updated when reconnection happenes.
         /// </summary>
-        private static readonly TimeSpan DeviceConnectionPollingInterval = new TimeSpan(0, 0, 5);
+        private uint deviceHandle = InvalidDevcieHandle;
 
-        // NOTE: These must stay in sync with DelcomDll.*LED values
-        // We only include yellow (not blue) because their byte value is the same
-        // Assume all are on to begin with so that we can turn them off at initialization.
-        private static Dictionary<LightColors, LightStates> CurrentLEDStates = new Dictionary<LightColors, LightStates>
+        /// <summary>
+        /// LED states which the class internally holds.
+        /// Assume all are on to begin with so that we can turn them off at initialization.
+        /// This table itself is also used as a lock to protect from mutliple LED operations.
+        /// </summary>
+        private Dictionary<DelcomLightColor, DelcomLightState> ligthStates = new Dictionary<DelcomLightColor, DelcomLightState>() {
+            { DelcomLightColor.Green, DelcomLightState.On },
+            { DelcomLightColor.Red, DelcomLightState.On },
+            { DelcomLightColor.Blue, DelcomLightState.On } };
+
+        /// <summary>
+        /// Interval before retrying light control call.
+        /// </summary>
+        private static readonly TimeSpan LightRetryInterval = TimeSpan.FromMilliseconds(500.0);
+
+        /// <summary>
+        /// Maximum number of retries when light control call fails.
+        /// </summary>
+        private const int MaxLightRetries = 5;
+
+        /// <summary>
+        /// Interval when retrying to connect the device.
+        /// </summary>
+        private static readonly TimeSpan DeviceRetryOpenInterval = TimeSpan.FromSeconds(10.0);
+
+        #endregion Variables and Constants
+
+        #region Device setup and cleanup
+
+        /// <summary>
+        /// Constructor.
+        /// </summary>
+        /// <exception cref="ApplicationException">No device is found.</exception>
+        public DelcomLightWrapper()
+        {
+            if (!OpenDevice())
             {
-                { LightColors.Green, LightStates.On },
-                { LightColors.Red, LightStates.On },
-                { LightColors.Yellow, LightStates.On }
-            };
+                throw new ApplicationException("No device is found.");
+            }
 
-        // NOTE: These must stay in sync with the DelcomDll.*LED values
-        public enum LightColors : byte
-        {
-            Green = 0,
-            Red = 1,
-            Blue = 2,
-            Yellow = 2,
-        }
-
-        // NOTE: These must stay in sync with the DelcomDll.LED* values
-        public enum LightStates : byte
-        {
-            Off = 0,
-            On = 1,
-            Flash = 2,
-        }
-
-        // NOTE: These map exactly to the values returned by DelcomDll.DelcomGetButtonStatus
-        public enum ButtonState : int
-        {
-            NotPressed = 0,
-            Pressed = 1,
-            Unknown = 2,
+            if (!this.TurnOffAllLights())
+            {
+                throw new ApplicationException("Failed to initialize light states.");
+            }
         }
 
         /// <summary>
-        /// Return the handle value to represent the connected device.
+        /// Public method to request cleanup.
         /// </summary>
-        /// <returns>Non-0 for the opened device. 0 if any device is not opened.</returns>
-        public static uint OpenDelcomDevice()
+        public void Close()
         {
-            int found;
-            uint hUSB = 0;
-            StringBuilder DeviceName = new StringBuilder(Delcom.MAXDEVICENAMELEN);
+            this.CloseDevice();
+        }
+
+        /// <summary>
+        /// Find and open a Delcom device. this.deviceHandle is set upon success.
+        /// </summary>
+        /// <returns>true on success.</returns>
+        private bool OpenDevice()
+        {
+            if (this.deviceHandle != InvalidDevcieHandle)
+            {
+                this.CloseDevice();
+            }
+
+            StringBuilder deviceName = new StringBuilder(Delcom.MAXDEVICENAMELEN);
 
             // Search for the first match USB device, For USB IO Chips use Delcom.USBIODS
             // With Generation 2 HID devices, you can pass a TypeId of 0 to open any Delcom device.
-            found = Delcom.DelcomGetNthDevice(Delcom.USBDELVI, 0, DeviceName);
+            int findResult = Delcom.DelcomGetNthDevice(Delcom.USBDELVI, 0, deviceName);
 
-            if (found > 0)
+            if (findResult == 0)
             {
-                hUSB = Delcom.DelcomOpenDevice(DeviceName, 0);
+                Trace.TraceError("Device was not found");
             }
-
-            return hUSB;
-        }
-
-        public static void CloseDelcomDevice(uint hUSB)
-        {
-            Delcom.DelcomCloseDevice(hUSB);
-        }
-
-        public static bool DelcomLEDAction(uint hUSB, LightColors color, LightStates action)
-        {
-            bool success = false;
-
-            //lock here so multiple threads don't try to toggle LEDs at once
-            //(though presently only one instance of the program works with the light at a time anyway)
-            lock (DelcomLightWrapper.CurrentLEDStates)
+            else
             {
-                LightStates dictVal;
-                if (DelcomLightWrapper.CurrentLEDStates.TryGetValue(color, out dictVal) && dictVal == action)
+                uint newDeviceHandle = Delcom.DelcomOpenDevice(deviceName, 0);
+                if (newDeviceHandle == InvalidDevcieHandle)
                 {
-                    //that LED is already in appropriate state
-                    success = true;
+                    Trace.TraceError("Device was found, but failed to be connected. device = {0}", deviceName.ToString());
                 }
                 else
                 {
-                    for (int i = 0; i < DelcomLightWrapper.LEDMaxRetries; i++)
+                    this.deviceHandle = newDeviceHandle;
+
+                    // Disable auto confirmation mode where the buzzer will sound when the button is pressed.
+                    Delcom.DelcomEnableAutoConfirm(this.deviceHandle, 0);
+                }
+            }
+
+            return (this.deviceHandle != InvalidDevcieHandle);
+        }
+
+        /// <summary>
+        /// Close current device. No-op if no device is opened.
+        /// </summary>
+        private void CloseDevice()
+        {
+            if (this.deviceHandle != InvalidDevcieHandle)
+            {
+                Delcom.DelcomCloseDevice(this.deviceHandle);
+                this.deviceHandle = InvalidDevcieHandle;
+            }
+        }
+
+        #endregion
+
+        #region Light control
+
+        /// <summary>
+        /// Set the state of a specific color of light.
+        /// </summary>
+        public bool SetLight(DelcomLightColor color, DelcomLightState newState)
+        {
+            bool result = false;
+
+            lock (this.ligthStates)
+            {
+                DelcomLightState currentState;
+                if (this.ligthStates.TryGetValue(color, out currentState) && currentState == newState)
+                {
+                    // This color is already in appropriate state.
+                    result = true;
+                }
+                else
+                {
+                    for (int i = 0; i < DelcomLightWrapper.MaxLightRetries; i++)
                     {
-                        if (Delcom.DelcomLEDControl(hUSB, (byte)color, (byte)action) == 0)
+                        if (Delcom.DelcomLEDControl(this.deviceHandle, (byte)color, (byte)newState) == 0)
                         {
-                            DelcomLightWrapper.CurrentLEDStates[color] = action;
-                            success = true;
+                            this.ligthStates[color] = newState;
+                            result = true;
                             break;
                         }
                         else
                         {
                             // Not to log each failure because a) API does not provide any error detail and
                             // b) caller will make an error log if all retries fail.
-                            System.Threading.Thread.Sleep(DelcomLightWrapper.LEDRetryInterval);
+                            System.Threading.Thread.Sleep(DelcomLightWrapper.LightRetryInterval);
                         }
                     }
                 }
             }
 
-            return success;
+            return result;
         }
 
-        public static bool DelcomLEDAllAction(uint hUSB, LightStates action)
+
+        /// <summary>
+        /// Turn off all the lights.
+        /// </summary>
+        public bool TurnOffAllLights()
         {
-            bool success = false;
+            bool result = true;
+            var colors = new List<DelcomLightColor>(this.ligthStates.Keys);
 
-            List<LightColors> lightsRemaining = new List<LightColors>();
-
-            //lock here so multiple threads don't try to toggle LEDs at once
-            //(though presently only one instance of the program works with the light at a time anyway)
-            lock (DelcomLightWrapper.CurrentLEDStates)
+            foreach (DelcomLightColor color in colors)
             {
-                foreach (KeyValuePair<LightColors, LightStates> lightAndState in DelcomLightWrapper.CurrentLEDStates)
+                bool singleResult = this.SetLight(color, DelcomLightState.Off);
+                if (!singleResult)
                 {
-                    if (lightAndState.Value != action)
-                    {
-                        lightsRemaining.Add(lightAndState.Key);
-                    }
-                }
-
-                if (lightsRemaining.Count == 0)
-                {
-                    //all LEDs already in appropriate state
-                    success = true;
-                }
-                else
-                {
-                    for (int i = 0; i < DelcomLightWrapper.LEDMaxRetries; i++)
-                    {
-                        List<LightColors> lightsFailed = new List<LightColors>();
-
-                        foreach (LightColors remainingLight in lightsRemaining)
-                        {
-                            if (Delcom.DelcomLEDControl(hUSB, (byte)remainingLight, (byte)action) == 0)
-                            {
-                                DelcomLightWrapper.CurrentLEDStates[remainingLight] = action;
-                            }
-                            else
-                            {
-                                // Not to log each failure because a) API does not provide any error detail and
-                                // b) caller will make an error log if all retries fail.
-                                lightsFailed.Add(remainingLight);
-                            }
-                        }
-
-                        if (lightsFailed.Count == 0)
-                        {
-                            success = true;
-                            break;
-                        }
-
-                        lightsRemaining = lightsFailed;
-                        System.Threading.Thread.Sleep(DelcomLightWrapper.LEDRetryInterval);
-                    }
+                    Trace.TraceError("TurnOffAllLights: failed to turn off {0}", color);
+                    result = false;
                 }
             }
 
-            return success;
+            return result;
         }
 
-        public static ButtonState DelcomGetButtonStatus(uint hUSB)
+        #endregion Light control
+
+        #region Button state
+
+        /// <summary>
+        /// Get current button state.
+        /// This internally checks the connection and try reconnection if needed.
+        /// </summary>
+        public DelcomButtonState GetButtonState()
         {
-            return (ButtonState)Delcom.DelcomGetButtonStatus(hUSB);
+            if (!this.IsButtonConnected())
+            {
+                Trace.TraceWarning("Delcom light device disconnection seems disconnected. Reconnecting.");
+                ReopenDevice();
+            }
+
+            return (DelcomButtonState)Delcom.DelcomGetButtonStatus(this.deviceHandle);
         }
 
         /// <summary>
-        /// Method used to determine whether a specific device is still connected
+        /// Determine whether the current device is still connected
         /// </summary>
-        /// <param name="hUSB"></param>
-        /// <returns></returns>
-        public static bool isButtonConnected(uint hUSB)
+        private bool IsButtonConnected()
         {
-            int deviceVersion = Delcom.DelcomReadDeviceVersion(hUSB);
-            
+            if (this.deviceHandle == InvalidDevcieHandle)
+            {
+                return false;
+            }
+
             //If no longer connected we will get a return value of 0 or 255 (manual says 0 but in practice we get 255)
+            int deviceVersion = Delcom.DelcomReadDeviceVersion(this.deviceHandle);           
             if (deviceVersion == 0 || deviceVersion == 255)
             {
                 return false;
@@ -204,33 +238,54 @@ namespace RRLightProgram
         }
 
         /// <summary>
-        /// Loop that attempts to open a device connection until one is connected. Replaces old
-        /// device id with new one.
+        /// Loop that attempts to reopen a device connection until one is connected.
+        /// Block the caller until a device is opened.
+        /// Note that this assumes to reconnect to the same device and does not reset
+        /// or initialize the states which this class manages (button & LED).
         /// </summary>
-        public static uint TryOpeningDelcomDevice()
+        private void ReopenDevice()
         {
-            // Initialize the light wrapper
-            uint hUSB = 0;
-            bool deviceOpened = false;
-            
-            //While no light has been found, wait for a connection
-            while (deviceOpened == false)
+            while (!this.OpenDevice())
             {
-                hUSB = DelcomLightWrapper.OpenDelcomDevice();
-                if (hUSB == 0)
-                {
-                    //If no light found, wait for a second and then try to open again.
-                    Trace.TraceWarning(@"Delcom device is not found. Sleep {0} and retry.", DelcomLightWrapper.DeviceConnectionPollingInterval);
-                    Thread.Sleep(DelcomLightWrapper.DeviceConnectionPollingInterval);
-                }
-                else
-                {
-                    deviceOpened = true;
-                }
+                Trace.TraceWarning(@"Delcom light device is not connected. Will retry after {0}.", DelcomLightWrapper.DeviceRetryOpenInterval);
+                Thread.Sleep(DelcomLightWrapper.DeviceRetryOpenInterval);
             }            
-            
-            return hUSB;
         }
 
+        #endregion Button state
     }
+
+    #region Public enum
+
+    /// <summary>
+    /// LED light color values in sync with the DelcomDll.*LED values.
+    /// </summary>
+    public enum DelcomLightColor : byte
+    {
+        Green = 0,
+        Red = 1,
+        Blue = 2,
+    }
+
+    /// <summary>
+    /// LED light state values in sync with the DelcomDll.LED* values.
+    /// </summary>
+    public enum DelcomLightState : byte
+    {
+        Off = 0,
+        On = 1,
+        Flash = 2,
+    }
+
+    /// <summary>
+    /// Button state values returned by DelcomDll.DelcomGetButtonStatus.
+    /// </summary>
+    public enum DelcomButtonState : int
+    {
+        NotPressed = 0,
+        Pressed = 1,
+        Unknown = 2,
+    }
+
+    #endregion Public enum
 }

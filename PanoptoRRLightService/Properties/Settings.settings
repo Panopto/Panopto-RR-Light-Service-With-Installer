@@ -5,9 +5,6 @@
     <Setting Name="DelcomButtonPollingInterval" Type="System.TimeSpan" Scope="Application">
       <Value Profile="(Default)">00:00:00.1000000</Value>
     </Setting>
-    <Setting Name="DelcomLightSupportsYellow" Type="System.Boolean" Scope="Application">
-      <Value Profile="(Default)">False</Value>
-    </Setting>
     <Setting Name="RecorderPollingInterval" Type="System.TimeSpan" Scope="Application">
       <Value Profile="(Default)">00:00:00.5000000</Value>
     </Setting>

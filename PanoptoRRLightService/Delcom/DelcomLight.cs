@@ -1,15 +1,6 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.ComponentModel;
-using System.Linq;
-using System.Text;
 using System.Threading;
-using System.Threading.Tasks;
-
-using LightService = RRLightProgram.Program;
-using ButtonState = RRLightProgram.DelcomLightWrapper.ButtonState;
 using System.Diagnostics;
-
 
 namespace RRLightProgram
 {
@@ -20,7 +11,7 @@ namespace RRLightProgram
         /// <summary>
         /// 
         /// </summary>
-        public uint deviceHandle;
+        private DelcomLightWrapper wrapper;
 
         /// <summary>
         /// Interface to post input events to the state machine.
@@ -88,19 +79,6 @@ namespace RRLightProgram
 
             this.stateMachine = stateMachine;
 
-            this.deviceHandle = DelcomLightWrapper.TryOpeningDelcomDevice();
-
-            Delcom.DelcomEnableAutoConfirm(this.deviceHandle, 0);
-            // Make sure we always start turned off
-            DelcomLightWrapper.DelcomLEDAllAction(this.deviceHandle, DelcomLightWrapper.LightStates.Off);
-
-            // Start a background thread to process light control requests.
-            this.processLightControlRequestsThread = new Thread(ProcessLightControlRequestsLoop);
-            this.processLightControlRequestsThread.Start();
-
-            // Start a background thread to monitor and process the button state.
-            this.handleButtonThread = new Thread(HandleButtonLoop);
-            this.handleButtonThread.Start();
         }
 
         /// <summary>
@@ -109,6 +87,24 @@ namespace RRLightProgram
         /// <returns>true on success, false on failure.</returns>
         public bool Start()
         {
+            try
+            {
+                this.wrapper = new DelcomLightWrapper();
+            }
+            catch (ApplicationException e)
+            {
+                Trace.TraceError("Failed to initialize DelcomLight wrapper. {0}", e);
+                return false;
+            }
+
+            // Start a background thread to process light control requests.
+            this.processLightControlRequestsThread = new Thread(ProcessLightControlRequestsLoop);
+            this.processLightControlRequestsThread.Start();
+
+            // Start a background thread to monitor and process the button state.
+            this.handleButtonThread = new Thread(HandleButtonLoop);
+            this.handleButtonThread.Start();
+
             return true;
         }
 
@@ -121,7 +117,7 @@ namespace RRLightProgram
             this.processLightControlRequestsThread.Join();
             this.handleButtonThread.Join();
 
-            DelcomLightWrapper.CloseDelcomDevice(this.deviceHandle);
+            this.wrapper.Close();
         }
 
         #endregion
@@ -139,8 +135,8 @@ namespace RRLightProgram
             {
                 outstandingRequest = request;
                 outstandingRequestExist.Set();
+                TraceVerbose.Trace("SetSolid({0}): request queued.", color);
             }
-            TraceVerbose.Trace("SetSolid({0}): request queued.", color);
         }
 
         public void SetFlash(LightColor color)
@@ -158,8 +154,8 @@ namespace RRLightProgram
             {
                 outstandingRequest = request;
                 outstandingRequestExist.Set();
+                TraceVerbose.Trace("SetFlash({0}): request queued.", color);
             }
-            TraceVerbose.Trace("SetFlash({0}): request queued.", color);
         }
 
         #endregion
@@ -198,65 +194,59 @@ namespace RRLightProgram
 
                 if (request.Value.Color == LightColor.Off)
                 {
-                    if (!DelcomLightWrapper.DelcomLEDAllAction(this.deviceHandle, DelcomLightWrapper.LightStates.Off))
+                    if (!this.wrapper.TurnOffAllLights())
                     {
-                        Trace.TraceError("DelcomLEDAllAction: failed to turn off.");
+                        Trace.TraceError("ProcessLightControlRequestsLoop failure: off");
                     }
                     else
                     {
-                        TraceVerbose.Trace("ProcessLightControlRequestsLoop complete: off");
+                        TraceVerbose.Trace("ProcessLightControlRequestsLoop success: off");
                     }
                 }
                 else
                 {
-                    DelcomLightWrapper.LightColors color = ConvertColor(request.Value.Color);
-                    DelcomLightWrapper.LightStates action = request.Value.Flash ?
-                        DelcomLightWrapper.LightStates.Flash :
-                        DelcomLightWrapper.LightStates.On;
-                    if (!DelcomLightWrapper.DelcomLEDAction(this.deviceHandle, color, action))
+                    DelcomLightColor color = ConvertColor(request.Value.Color);
+                    DelcomLightState state = request.Value.Flash ? DelcomLightState.Flash : DelcomLightState.On;
+                    if (!wrapper.SetLight(color, state))
                     {
-                        Trace.TraceError("DelcomLEDAllAction: failed to set {0} / {1}",
-                            Enum.GetName(typeof(DelcomLightWrapper.LightColors), color),
-                            Enum.GetName(typeof(DelcomLightWrapper.LightStates), action));
+                        Trace.TraceError("ProcessLightControlRequestsLoop failure: color={0}, state={1}", color, state);
                     }
                     else
                     {
-                        TraceVerbose.Trace("ProcessLightControlRequestsLoop complete: color={0}, flash={1}", request.Value.Color, request.Value.Flash);
+                        TraceVerbose.Trace("ProcessLightControlRequestsLoop success: color={0}, state={1}", color, state);
                     }
                 }
             }
         }
 
         /// <summary>
-        /// Helper to convert our 'public-facing' color enum to the delcom light.
-        /// Given that DelcomLightWrapper.LightColors.Yellow == DelcomLightWrapper.LightColors.Blue
-        /// (the byte we send to the light indicating which LED we want to change is the same whether
-        /// it supports yellow or blue), this makes no difference at present.
+        /// Helper to convert our 'public-facing' color enum to the Delcom light.
+        /// Delcom light has two versions, one supports yellow nad the other suports blue.
+        /// Although Delcom document is vague, distributed DelcomDLL.h has only a single entry BLUELED = 2.
+        /// We observe that each device picks either blue or yellow for this value.
         /// </summary>
         /// <param name="inputColor"></param>
         /// <returns></returns>
-        private DelcomLightWrapper.LightColors ConvertColor(LightColor inputColor)
+        private DelcomLightColor ConvertColor(LightColor inputColor)
         {
-            DelcomLightWrapper.LightColors result = DelcomLightWrapper.LightColors.Red;
-
-            // Make this a configurable value since delcom lights come in both RGY (the default) and RGB, and
-            // we want to be able to work with both.
-            bool lightSupportsYellow = RRLightProgram.Properties.Settings.Default.DelcomLightSupportsYellow;
+            DelcomLightColor result;
 
             switch (inputColor)
             {
                 case LightColor.Red:
-                    result = DelcomLightWrapper.LightColors.Red;
+                    result = DelcomLightColor.Red;
                     break;
 
                 case LightColor.Green:
-                    result = DelcomLightWrapper.LightColors.Green;
+                    result = DelcomLightColor.Green;
                     break;
 
                 case LightColor.Yellow:
-                    // Map yellow to the appropriate color based on what the light supports
-                    result = lightSupportsYellow ? DelcomLightWrapper.LightColors.Yellow : DelcomLightWrapper.LightColors.Blue;
+                    result = DelcomLightColor.Blue;
                     break;
+
+                default:
+                    throw new ArgumentException("Unexpected inputColor");
             }
 
             return result;
@@ -272,10 +262,10 @@ namespace RRLightProgram
         /// </summary>
         private void HandleButtonLoop()
         {
-            ButtonState currentState = ButtonState.NotPressed;
-            int countButtonReleaseEvent = 0;
+            DelcomButtonState currentState = DelcomButtonState.NotPressed;
+            int countButtonUpEvent = 0;
             int countButtonDownEvent = 0;
-            Boolean buttonHeld = false;
+            bool buttonHeld = false;
 
             //The time when the button was last in a down state.
             DateTime lastButtonDownTime = DateTime.MinValue;
@@ -286,27 +276,14 @@ namespace RRLightProgram
             // Loop endlessly until we're asked to stop
             while (!this.stopRequested.WaitOne(0))
             {
-                //Check if light is still connected
-                bool isStillConnected = DelcomLightWrapper.isButtonConnected(this.deviceHandle);
-
-                //If not still connected, start loop to poll for connection until it is connected.
-                if (!isStillConnected)
-                {
-                    Trace.TraceInformation("BackgroundPollingWorker: closing device.");
-                    DelcomLightWrapper.CloseDelcomDevice(this.deviceHandle);
-                    Trace.TraceInformation("BackgroundPollingWorker: closed device. reopeing device.");
-                    this.deviceHandle = DelcomLightWrapper.TryOpeningDelcomDevice();
-                    Trace.TraceInformation("BackgroundPollingWorker: opened device.");
-                }
-
                 // We do not examine the button state at all for small duraiton (300ms default) after the button is up
                 // last time in order to avoid two sequential 'pressed' events are fired unintentionally.
                 if ((DateTime.UtcNow - lastButtonUpTime) > Properties.Settings.Default.DelcomButtonIgnoreAfterButtonUp)
                 {
                     // Get the current state of the button
-                    ButtonState newState = DelcomLightWrapper.DelcomGetButtonStatus(deviceHandle);
+                    DelcomButtonState newState = this.wrapper.GetButtonState();
 
-                    if (newState == ButtonState.Unknown)
+                    if (newState == DelcomButtonState.Unknown)
                     {
                         throw new NotImplementedException();
                     }
@@ -314,19 +291,19 @@ namespace RRLightProgram
                     {
                         // The state has changed, so we need to handle it
 
-                        if (newState == ButtonState.NotPressed)
+                        if (newState == DelcomButtonState.NotPressed)
                         {
                             // We were previously in a pressed state, but the button on the light is flaky, so we need
                             // to make sure the button has really been released, so we'll wait a few iterations.
-                            countButtonReleaseEvent++;
+                            countButtonUpEvent++;
 
-                            if (countButtonReleaseEvent >= DelcomLight.ButtonRecognitionThreshold)
+                            if (countButtonUpEvent >= DelcomLight.ButtonRecognitionThreshold)
                             {
                                 // Only remember the currentstate as changed if we're exceeding threshold
                                 currentState = newState;
 
                                 // Button just released so reset timer
-                                countButtonReleaseEvent = 0;
+                                countButtonUpEvent = 0;
 
                                 // Fire a button up event.
                                 // This is independent from button pressed or button held.
@@ -344,7 +321,7 @@ namespace RRLightProgram
                                 buttonHeld = false;
                             }
                         }
-                        else if (newState == ButtonState.Pressed)
+                        else if (newState == DelcomButtonState.Pressed)
                         {
                             // We were previously in a released state, but the button on the light is flaky, so we need
                             // to make sure the button has really been pressed, so we'll wait a few iterations.
@@ -369,13 +346,13 @@ namespace RRLightProgram
                             }
                         }
                     }
-                    else if (newState == ButtonState.Pressed) // && oldState == ButtonState.Pressed
+                    else if (newState == DelcomButtonState.Pressed) // && oldState == ButtonState.Pressed
                     {
                         // Button has been held, check if hold is greater than threshold
                         TimeSpan holdDuration = DateTime.UtcNow - lastButtonDownTime;
 
                         // Reset iterations since last release
-                        countButtonReleaseEvent = 0;
+                        countButtonUpEvent = 0;
 
                         // If button held event has already been fired, we don't want to fire again until the button has been released
                         if (!buttonHeld)
@@ -388,7 +365,7 @@ namespace RRLightProgram
                             }
                         }
                     }
-                    else if (newState == ButtonState.NotPressed) // && oldState == ButtonState.NotPressed
+                    else if (newState == DelcomButtonState.NotPressed) // && oldState == ButtonState.NotPressed
                     {
                         // Reset iterations since last press
                         countButtonDownEvent = 0;
