@@ -109,8 +109,11 @@ namespace RRLightProgram
                 {
                     if (state.Status != RemoteRecorderStatus.Stopped)
                     {
-                        this.controller.StopCurrentRecording(state.CurrentRecording.Id);
-                        result = true;
+                        result = this.controller.StopCurrentRecording(state.CurrentRecording.Id);
+                        if (!result)
+                        {
+                            Trace.TraceWarning("StopCurrentRecording failed.");
+                        }
                     }
                 }
             }
@@ -135,8 +138,11 @@ namespace RRLightProgram
                 RemoteRecorderState state = this.controller.GetCurrentState();
                 if (state.Status != RemoteRecorderStatus.Recording)
                 {
-                    this.controller.ResumeCurrentRecording(state.CurrentRecording.Id);
-                    result = true;
+                    result = this.controller.ResumeCurrentRecording(state.CurrentRecording.Id);
+                    if (!result)
+                    {
+                        Trace.TraceWarning("ResumeCurrentRecording failed.");
+                    }
                 }
             }
             catch (Exception e)
@@ -160,8 +166,11 @@ namespace RRLightProgram
                 RemoteRecorderState state = this.controller.GetCurrentState();
                 if (state.Status != RemoteRecorderStatus.Paused)
                 {
-                    this.controller.PauseCurrentRecording(state.CurrentRecording.Id);
-                    result = true;
+                    result = this.controller.PauseCurrentRecording(state.CurrentRecording.Id);
+                    if (!result)
+                    {
+                        Trace.TraceInformation("PauseCurrentRecording failed. This is expected if the recording is broadcast.");
+                    }
                 }
             }
             catch (Exception e)
@@ -188,8 +197,11 @@ namespace RRLightProgram
                 if (state.Status != RemoteRecorderStatus.Recording &&
                     state.CurrentRecording != nextRecording)
                 {
-                    this.controller.StartNextRecording(nextRecording.Id);
-                    result = true;
+                    result = this.controller.StartNextRecording(nextRecording.Id);
+                    if (!result)
+                    {
+                        Trace.TraceWarning("StartNextRecording failed.");
+                    }
                 }
             }
             catch (Exception e)
@@ -217,8 +229,11 @@ namespace RRLightProgram
                     state.CurrentRecording == null &&
                     nextRecording == null)
                 {
-                    this.controller.StartNewRecording(false);
-                    result = true;
+                    result = this.controller.StartNewRecording(false);
+                    if (!result)
+                    {
+                        Trace.TraceWarning("StartNewRecording failed.");
+                    }
                 }
             }
             catch (Exception e)

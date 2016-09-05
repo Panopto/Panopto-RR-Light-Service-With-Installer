@@ -248,10 +248,10 @@ namespace RRLightProgram
             bool requestResult = this.remoteRecorder.PauseCurrentRecording();
             if (!requestResult)
             {
-                Trace.TraceWarning("Failed to pause the recording. Flash red for 2 seconds and change light back to paused state.");
+                Trace.TraceWarning("Failed to pause the recording. Flash red for 2 seconds and change light back to recording state.");
                 this.light.SetFlash(LightColor.Red);
                 Thread.Sleep(2000);
-                this.light.SetSolid(LightColor.Yellow);
+                this.light.SetSolid(LightColor.Green);
             }
             return requestResult;
         }

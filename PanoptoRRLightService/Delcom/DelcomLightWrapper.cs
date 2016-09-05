@@ -139,9 +139,9 @@ namespace RRLightProgram
         #region Light control
 
         /// <summary>
-        /// Set the state of a specific color of light.
+        /// Internal method to set a single color of light.
         /// </summary>
-        public bool SetLight(DelcomLightColor color, DelcomLightState newState)
+        private bool SetSingleLight(DelcomLightColor color, DelcomLightState newState)
         {
             bool result = false;
 
@@ -176,6 +176,34 @@ namespace RRLightProgram
             return result;
         }
 
+        /// <summary>
+        /// Set the state of a specific color of light.
+        /// Internally, this turns off the unspecified light.
+        /// </summary>
+        public bool SetLight(DelcomLightColor color, DelcomLightState newState)
+        {
+            if (newState == DelcomLightState.Off)
+            {
+                throw new ArgumentException("SetLight method cannot be used for turning off");
+            }
+
+            bool result = true;
+            var colors = new List<DelcomLightColor>(this.ligthStates.Keys);
+
+            foreach (DelcomLightColor targetColor in colors)
+            {
+                bool singleResult = this.SetSingleLight(
+                    targetColor,
+                    (targetColor == color) ? newState : DelcomLightState.Off);
+                if (!singleResult)
+                {
+                    Trace.TraceError("SetLight: failed to manipulate {0}", targetColor);
+                    result = false;
+                }
+            }
+
+            return result;
+        }
 
         /// <summary>
         /// Turn off all the lights.
@@ -187,7 +215,7 @@ namespace RRLightProgram
 
             foreach (DelcomLightColor color in colors)
             {
-                bool singleResult = this.SetLight(color, DelcomLightState.Off);
+                bool singleResult = this.SetSingleLight(color, DelcomLightState.Off);
                 if (!singleResult)
                 {
                     Trace.TraceError("TurnOffAllLights: failed to turn off {0}", color);
