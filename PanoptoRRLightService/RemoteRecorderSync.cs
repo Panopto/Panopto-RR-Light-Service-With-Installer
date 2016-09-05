@@ -1,6 +1,5 @@
 ﻿using Panopto.RemoteRecorderAPI.V1;
 using System;
-using System.ComponentModel;
 using System.Diagnostics;
 using System.Linq;
 using System.Reflection;
@@ -12,76 +11,86 @@ namespace RRLightProgram
 {
     public class RemoteRecorderSync
     {
-        private const string RemoteRecorderServiceName = "Panopto Remote Recorder Service";
+        #region Variables
 
-        /// <summary>
-        /// ServiceController.WaitForStatus() returns before the service has completely started,
-        /// so we have to give it a bit more time.
-        /// </summary>
-        private static readonly TimeSpan RemoteRecorderServiceSetupBreak = TimeSpan.FromSeconds(1.0);
+        private const string RemoteRecorderServiceName = "Panopto Remote Recorder Service";
+        private const string RemoteRecorderProcessName = "RemoteRecorder";
 
         /// <summary>
         /// Remote Recorder controller.
         /// </summary>
         private IRemoteRecorderController controller;
 
-        private bool shouldStop = false;
-
         /// <summary>
         /// State machine interface to post events.
         /// </summary>
         private IStateMachine stateMachine;
 
-        //Property to determine whether the current version of the remote recorder supports starting a new recording.
+        /// <summary>
+        /// Background thread to monitor the remote recorder state.
+        /// </summary>
+        private Thread stateMonitorThread;
+
+        /// <summary>
+        /// Stop request for the background thread.
+        /// </summary>
+        private ManualResetEvent stateMonitorThreadToStop;
+
+        /// <summary>
+        /// Property to determine whether the current version of the remote recorder supports starting a new recording.
+        /// </summary>
         public bool SupportsStartNewRecording { get; private set; }
+
+        #endregion Variables
+
+        #region Initialization and Cleanup
 
         /// <summary>
         /// Constructor
         /// </summary>
         /// <param name="stateMachine">Interface to the state machine.</param>
-        /// <exception cref="ApplicationException">Thrown if failing to connect to Remote Recoder</exception>
+        /// <exception cref="TimeoutException">Thrown if failing to connect to Remote Recoder. Service may not run.</exception>
         public RemoteRecorderSync(IStateMachine stateMachine)
         {
+            // This waits for RR to start.
             this.SetUpController();
 
             this.stateMachine = stateMachine;
 
+            // Get the current remote recorder version number
+            // This should succeed because SetUpController has confirmed the service is up.
+            Process process = Process.GetProcessesByName(RemoteRecorderSync.RemoteRecorderProcessName).FirstOrDefault();
+            if (process == null)
+            {
+                throw new ApplicationException("Remote recoder process is not running.");
+            }
+
             try
             {
-                //Try to get the current remote recorder version number
-                Process result = Process.GetProcessesByName("RemoteRecorder").FirstOrDefault();
-                if (result == null)
-                {
-                    throw new ApplicationException("Remote recoder process is not running.");
-                }
-                AssemblyName an = AssemblyName.GetAssemblyName(result.MainModule.FileName);
-                if (an == null || an.Version == null)
-                {
-                    throw new ApplicationException("Remote recoder assembly name is not accessible.");
-                }
-
+                AssemblyName an = AssemblyName.GetAssemblyName(process.MainModule.FileName);
                 this.SupportsStartNewRecording = (an.Version.CompareTo(Version.Parse("5.0")) >= 0);
             }
-            catch (Exception e)
+            catch (System.ComponentModel.Win32Exception)
             {
-                // If we fail to get the RR version, assuming it is 5.0.0 or above.
-                Trace.TraceWarning(@"Failed to get remote recoder version. Assuming 5.0.0+. {0}", e);
+                // This may happen if this service runs without admin privilege.
+                Trace.TraceInformation("Assembly information of Remote Recoder is not available. Assuming 5.0.0+.");
                 this.SupportsStartNewRecording = true;
             }
 
-            //Start background thread to listen for input from recorder
-            BackgroundWorker bgw = new BackgroundWorker();
-            bgw.DoWork += delegate { BackgroundPollingWorker(); };
-            bgw.RunWorkerAsync();
+            // Start background thread to monitor the recorder state.
+            this.stateMonitorThread = new Thread(StateMonitorLoop);
+            this.stateMonitorThreadToStop = new ManualResetEvent(initialState: false);
+            this.stateMonitorThread.Start();
         }
-
 
         // Stop the background thread
         public void Stop()
         {
-            this.shouldStop = true;
+            this.stateMonitorThreadToStop.Set();
+            this.stateMonitorThread.Join();
         }
 
+        #endregion Initialization and Cleanup
 
         #region Public methods to take action against Remote Recorder
 
@@ -225,15 +234,37 @@ namespace RRLightProgram
         #region Helper methods
 
         /// <summary>
-        /// Creates channel for RR endpoint.
+        /// Wait for the remote recorder service to start and creates channel for RR endpoint.
         /// </summary>
         private void SetUpController()
         {
-            ChannelFactory<IRemoteRecorderController> channelFactory = new ChannelFactory<IRemoteRecorderController>(
-                new NetNamedPipeBinding(),
-                new EndpointAddress(Panopto.RemoteRecorderAPI.V1.Constants.ControllerEndpoint));
-            
-            this.controller = channelFactory.CreateChannel();
+            using (ServiceController serviceController = new ServiceController(RemoteRecorderServiceName))
+            {
+                // Wait until RR service has started. Message every minute while waiting.
+                while (true)
+                {
+                    try
+                    {
+                        serviceController.WaitForStatus(ServiceControllerStatus.Running, TimeSpan.FromSeconds(60.0));
+                        break;
+                    }
+                    catch (System.TimeoutException)
+                    {
+                        Trace.TraceInformation("RemoteRecorderSync: Waiting for the recorder to start up.");
+                    }
+                }
+
+                // ServiceController.WaitForStatus() may return before the service has completely started,
+                // so we have to give it a bit more time. Note that if this break isn't long enough,
+                // we'll hit an exception later and return to HandleRRException again, so it's safe.
+                Thread.Sleep(TimeSpan.FromSeconds(1.0));
+
+                ChannelFactory<IRemoteRecorderController> channelFactory = new ChannelFactory<IRemoteRecorderController>(
+                    new NetNamedPipeBinding(),
+                    new EndpointAddress(Panopto.RemoteRecorderAPI.V1.Constants.ControllerEndpoint));
+
+                this.controller = channelFactory.CreateChannel();
+            }
         }
 
         /// <summary>
@@ -248,17 +279,7 @@ namespace RRLightProgram
             // FaultException raised if RR service stops after channel is connected to it.
             if (blockUntilRunning && (e is EndpointNotFoundException || e is FaultException))
             {
-                using (ServiceController rrController = new ServiceController(RemoteRecorderServiceName))
-                {
-                    // Wait until RR service has started
-                    rrController.WaitForStatus(ServiceControllerStatus.Running);
-
-                    // Note that if this break isn't long enough, we'll hit another
-                    // exception and return to this loop, so it's safe.
-                    Thread.Sleep(RemoteRecorderSync.RemoteRecorderServiceSetupBreak);
-
-                    SetUpController();
-                }
+                SetUpController();
             }
             else
             {
@@ -272,14 +293,14 @@ namespace RRLightProgram
         #region State monitor
 
         /// <summary>
-        ///  Runs on a background thread to monitor the remoterecorder state and will dispatch events back to the
-        ///  main thread when the state changes.
+        ///  Runs on a background thread to monitor the remote recorder state and will dispatch events to the state machine.
         /// </summary>
-        private void BackgroundPollingWorker()
+        private void StateMonitorLoop()
         {
             Input previousStateAsInput = MapInputFrom(RemoteRecorderStatus.Disconnected);
 
-            while (!this.shouldStop)
+            // Loop with sleep (by the timeout of waiting for stop request)
+            do
             {
                 Exception exceptionInRR = null;
                 Input stateAsInput;
@@ -309,13 +330,10 @@ namespace RRLightProgram
                 if (exceptionInRR != null)
                 {
                     // Blocks while RR service is not running.
-                    HandleRRException(exceptionInRR, true);
+                    HandleRRException(exceptionInRR, blockUntilRunning: true);
                     exceptionInRR = null;
                 }
-
-                // Sleep for a moment before polling again to avoid spinlock
-                Thread.Sleep(RRLightProgram.Properties.Settings.Default.RecorderPollingInterval);
-            }
+            } while (!this.stateMonitorThreadToStop.WaitOne(Properties.Settings.Default.RecorderPollingInterval));
         }
 
         /// <summary>
