@@ -279,6 +279,7 @@ namespace RRLightProgram
             // FaultException raised if RR service stops after channel is connected to it.
             if (blockUntilRunning && (e is EndpointNotFoundException || e is FaultException))
             {
+                Trace.TraceWarning("Error calling remote recorder process. Reconnecting: {0}", e);
                 SetUpController();
             }
             else
