@@ -1,773 +1,591 @@
-// Uncomment the below to turn on debug output for this state machine
-// #define s_debugoutput
-
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
-using System.Linq;
-using System.Reflection;
 using System.Threading;
-using Panopto.RemoteRecorderAPI.V1;
 
 namespace RRLightProgram
 {
-
-    // Abbreviations used in the transition table to make the code more readable
-    using RRS = StateMachine.RRState;
-
-    public class StateMachine
+    public class StateMachine : IStateMachine
     {
-        private DelcomLight light;
-        private RemoteRecorderSync rrSync;
-
-        public StateMachine(DelcomLight light, RemoteRecorderSync rrSync)
-        {
-            //hold onto the Light and the RemoteRecorder so we can issue actions as necessary
-            this.light = light;
-            this.rrSync = rrSync;
-        }
-
-        #region Public
-
-        #region Types
+        #region Variables
 
         /// <summary>
-        /// Base class for input event args
+        /// Current state. Because this is updated only by InputProcessLoop method, lock is not used.
         /// </summary>
-        public class StateMachineInputArgs : EventArgs
+        private State state = State.Init;
+
+        /// <summary>
+        /// FIFO queue to store incoming inputs.
+        /// </summary>
+        private Queue<Input> inputQueue = new Queue<Input>();
+
+        /// <summary>
+        /// Event to be singaled when inputQueue has any entry. Set and reset should be done under the lock of inputQueue.
+        /// </summary>
+        private ManualResetEvent inputQueueEvent = new ManualResetEvent(initialState: false);
+
+        /// <summary>
+        /// Background thread to process inputs and transition the state.
+        /// </summary>
+        private Thread inputProcessThread;
+
+        /// <summary>
+        /// Event to indicate that back ground threads should stop.
+        /// </summary>
+        private ManualResetEvent stopRequested = new ManualResetEvent(initialState: false);
+
+        /// <summary>
+        /// Contorller of the remote recorder.
+        /// This is used to request anything to the remote controller.
+        /// State change is posted as state machine input, which is not a part of this interface.
+        /// </summary>
+        private RemoteRecorderSync remoteRecorder;
+
+        /// <summary>
+        /// Interface to control the light. Current logic may drive only one light control.
+        /// This cannot be null. Emtpy implementation is attached if the caller does not pass it.
+        /// </summary>
+        private ILightControl light;
+
+        #endregion Variables
+
+        #region Initialization and cleanup
+
+        /// <summary>
+        /// Constructor. Always succeeds.
+        /// </summary>
+        public StateMachine()
         {
-            public StateMachineInputArgs(StateMachineInput input, Object data = null)
+            this.InitializeTransitionTable();
+        }
+
+        /// <summary>
+        /// Set ILightControl interface, RemoteRecoderSync, and start processing thread.
+        /// </summary>
+        /// <param name="remoteRecorder">Remote recorder controller. Cannot be null.</param>
+        /// <param name="lightControl">Light control interface. May be null.</param>
+        public void Start(RemoteRecorderSync remoteRecorder, ILightControl lightControl)
+        {
+            if (remoteRecorder == null)
             {
-                m_input = input;
-                m_data = data;
+                throw new ArgumentException("remoteRecorder cannot be null.");
+            }
+            if (this.inputProcessThread != null)
+            {
+                throw new ApplicationException("StateMachine.Start() is called while running.");
             }
 
-            public StateMachineInput Input
+            this.remoteRecorder = remoteRecorder;
+            this.light = lightControl ?? new EmptyLightControl();
+
+            this.inputProcessThread = new Thread(this.InputProcessLoop);
+            TraceVerbose.Trace("State machine is starting.");
+            inputProcessThread.Start();
+        }
+
+        /// <summary>
+        /// Stop processing thread.
+        /// </summary>
+        public void Stop()
+        {
+            if (this.inputProcessThread == null)
             {
-                get { return m_input; }
+                throw new ApplicationException("StateMachine.Stop() is called while not running.");
             }
 
-            public Object Data
+            TraceVerbose.Trace("State machine is being stopped.");
+            this.stopRequested.Set();
+            this.inputProcessThread.Join();
+            this.inputProcessThread = null;
+            TraceVerbose.Trace("State machine has stopped.");
+        }
+
+        #endregion Initialization and cleanup
+
+        #region IStateMachine
+
+        public void PostInput(Input input)
+        {
+            Trace.TraceInformation("Post: Input {0}", input);
+            lock (this.inputQueue)
             {
-                get { return m_data; }
-            }
-
-            private StateMachineInput m_input;
-            private object m_data;
-        }
-
-        /// <summary>
-        ///  Inputs events used in the state machine to trigger a transition
-        /// </summary>
-        public enum StateMachineInput
-        {
-            NoInput = 0,
-            RecorderPreviewing = 1,
-            RecorderRecording = 2,
-            RecorderPaused = 3,
-            RecorderFaulted = 4,
-            RecorderPreviewingQueued = 5,
-            RecorderStopped = 6,
-            RecorderRunning = 7,
-            Disconnected = 8,
-
-            //Button Pressed means that the button was pressed for less time than the threshold for holding, and is now up, resulting in a full click
-            ButtonPressed = 9,
-
-            //Button held means that the button was held down for longer than the hold threshold
-            ButtonHeld = 10,
-
-            //Button down occurs whenever the button is pressed down, and serves only to turn the red light on to indicate that no recordings are queued while previewing. It results in a noop in all other instances.
-            ButtonDown = 11,
-
-            //Button up occurs whenever the button is relesed, and serves only to turn the red light off which indicate that no recordings are queued while previewing. It results in a noop in all other instances.
-            ButtonUp = 12,
-        }
-
-        /// <summary>
-        /// Enum representing the state of the control
-        /// </summary>
-        internal enum RRState
-        {
-            Init = 0,
-            RRPreviewing = 1,
-            RRPreviewingQueued = 2,
-            RRRecordingWait = 3,
-            RRRecording = 4,
-            RRPausedWait = 5,
-            RRPaused = 6,
-            RRStoppingPaused = 7,
-            RRStoppingRecord = 8,
-            RRStopped = 9,
-            RRRunning = 10,
-            RRFaulted = 11,
-            RRDisconnected = 12,
-        }
-
-        /// <summary>
-        /// delegate type used to define the actions performed on a transition between states
-        /// </summary>
-        private delegate bool StateMachineAction(
-            StateMachine control,
-            RRState currentState,
-            StateMachineInputArgs args
-            );
-
-        #endregion Types
-
-        #region Properties
-
-        /// <summary>
-        /// The current state of the browsing control
-        /// </summary>
-        private RRState State
-        {
-            get
-            {
-                return m_SMState;
+                this.inputQueue.Enqueue(input);
+                this.inputQueueEvent.Set();
             }
         }
 
-        #endregion Properties
+        public State GetCurrentState()
+        {
+            return this.state;
+        }
 
-        #endregion Public
+        #endregion
 
-        #region Private
-
-        #region Types
+        #region Input Process Loop
 
         /// <summary>
-        /// Recording defining a transition from currentState to
-        /// newState when input is received.
-        /// The delegate action is called prior to entering the new state
+        /// Process queued inputs in serialized FIFO order.
         /// </summary>
-        private struct Transition
+        private void InputProcessLoop()
         {
-            public readonly RRState currentState;
-            public readonly StateMachineInput input;
-            public readonly ActionId actionId;
-            public readonly RRState newState;
-
-            public Transition(RRState cState,
-                              StateMachineInput smInput,
-                              ActionId tActionId,
-                              RRState nState)
+            while (true)
             {
-                currentState = cState;
-                input = smInput;
-                actionId = tActionId;
-                newState = nState;
+                int indexFired = WaitHandle.WaitAny(new WaitHandle[] { this.stopRequested, this.inputQueueEvent });
+
+                if (indexFired == 0)
+                {
+                    // this.stopRequested fired. Exit the thread.
+                    break;
+                }
+
+                // Pull an input from input queue.
+                Input input;
+                lock (this.inputQueue)
+                {
+                    if (this.inputQueue.Count == 0)
+                    {
+                        // Phantom event with some reason. Wait for next input.
+                        this.inputQueueEvent.Reset();
+                        continue;
+                    }
+
+                    input = inputQueue.Dequeue();
+                    if (this.inputQueue.Count == 0)
+                    {
+                        this.inputQueueEvent.Reset();
+                    }
+                }
+
+                // Look up the transition table.
+                Transition transition;
+                if (this.transitionTable.TryGetValue(new Condition(this.state, input), out transition))
+                {
+                    // Invoke the action.
+                    Trace.TraceInformation("Invoking {0} (Input:{1} State:{2}->{3})", transition.ActionMethod.Method.Name, input, this.state, transition.NextState);
+                    if (transition.ActionMethod(input))
+                    {
+                        this.state = transition.NextState;
+                    }
+                    else
+                    {
+                        Trace.TraceError("{0} failed. State stays at {1}", transition.ActionMethod.Method.Name, this.state);
+                    }
+                }
+                else
+                {
+                    TraceVerbose.Trace("No transition for Input:{0} State:{1})", input, this.state);
+                }
             }
         }
 
-        #endregion Types
+        #endregion Input Process Loop
 
-        #region Properties
-
-        /// <summary>
-        /// Last input processed by the state machine
-        /// </summary>
-        private StateMachineInput LastStateMachineInput
-        {
-            get
-            {
-                return m_lastStateMachineInput;
-            }
-        }
-
-        #endregion Properties
-
-        #region Methods
-
-        #region StateMachine Actions
+        #region State machine actions
 
         /// <summary>
-        /// Error transition action.
-        /// Used in the transition table when processing an event type that should never occur
-        /// when in the given state
+        /// Action to be taken when input is posted.
+        /// Action method is called in the process thread in serialized order.
+        /// Therefore, state is not transitioned during the method and it can access this.state directly if needed.
         /// </summary>
-        private static bool ActionError(
-            StateMachine control,
-            RRState currentState,
-            StateMachineInputArgs inputArgs
-            )
-        {
-            Trace.Fail(String.Format("State machine reached an error transition: {0} {1}.", currentState, inputArgs.Input));
-            throw new NotSupportedException(String.Format("State machine reached an error transition: {0} {1}.", currentState, inputArgs));
-        }
+        /// <param name="input">Input that triggerd this action.</param>
+        /// <returns>false on fatal error. State is not transitioned.</returns>
+        private delegate bool ActionMethod(Input input);
 
-        //Always return true
-        private static bool ActionRRNoop(
-            StateMachine control,
-            RRState currentState,
-            StateMachineInputArgs inputArgs
-            )
+        /// <summary>
+        /// No action is taken. State transition happens.
+        /// </summary>
+        /// <returns>Always true.</returns>
+        private bool ActionNone(Input input)
         {
             return true;
         }
 
-        //Stop recorder and turn light off
-        private static bool ActionRRStopped(
-            StateMachine control,
-            RRState currentState,
-            StateMachineInputArgs inputArgs
-            )
+        /// <summary>
+        /// Request to stop recording. Light is not changed.
+        /// </summary>
+        private bool ActionRequestStop(Input input)
         {
-            control.light.ChangeColor(DelcomColor.Off);
-            return true;
-        }
-
-        //Stop recorder and turn light off
-        private static bool ActionRRStoppingPaused(
-            StateMachine control,
-            RRState currentState,
-            StateMachineInputArgs inputArgs
-            )
-        {
-            control.light.ChangeColor(DelcomColor.Yellow, false, null);
-
-            bool stopRecording = control.rrSync.StopCurrentRecording();
-            if (stopRecording == false)
+            State currentState = this.state;
+            bool requestResult = this.remoteRecorder.StopCurrentRecording();
+            if (!requestResult)
             {
-                //If we can't stop the recording, flash red for 2 seconds and change light back to paused color before returning false
-                control.light.ChangeColor(DelcomColor.Red, false, TimeSpan.FromMilliseconds(2000));
+                Trace.TraceWarning("Failed to stop the recording. Flash red for 2 seconds and change light back to original state.");
+                this.light.SetFlash(LightColor.Red);
                 Thread.Sleep(2000);
-                control.light.ChangeColor(DelcomColor.Yellow);
+                if (currentState == State.Paused)
+                {
+                    this.light.SetSolid(LightColor.Yellow);
+                }
+                else
+                {
+                    this.light.SetSolid(LightColor.Green);
+                }
             }
-            return stopRecording;
+            return requestResult;
         }
 
-        private static bool ActionRRStoppingRecording(
-            StateMachine control,
-            RRState currentState,
-            StateMachineInputArgs inputArgs
-            )
+        /// <summary>
+        /// Request to resume paused recording. Light is not changed.
+        /// </summary>
+        private bool ActionRequestResume(Input input)
         {
-            control.light.ChangeColor(DelcomColor.Green, false, null);
-
-            bool stopRecording = control.rrSync.StopCurrentRecording();
-            if (stopRecording == false)
+            bool requestResult = this.remoteRecorder.ResumeCurrentRecording();
+            if (!requestResult)
             {
-                //If we can't stop the recording, flash red for 2 seconds and set light back to recording color before returning false
-                control.light.ChangeColor(DelcomColor.Red, false, TimeSpan.FromMilliseconds(2000));
+                Trace.TraceWarning("Failed to resume the recording. Flash red for 2 seconds and change light back to paused state.");
+                this.light.SetFlash(LightColor.Red);
                 Thread.Sleep(2000);
-                control.light.ChangeColor(DelcomColor.Green);
+                this.light.SetSolid(LightColor.Yellow);
             }
-            return stopRecording;
+            return requestResult;
         }
 
-        //Resume recorder after pause and turn green light on
-        private static bool ActionRRResume(
-            StateMachine control,
-            RRState currentState,
-            StateMachineInputArgs inputArgs
-            )
+        /// <summary>
+        /// Request to pause current recording. Light is not changed.
+        /// </summary>
+        private bool ActionRequestPause(Input input)
         {
-            control.light.ChangeColor(DelcomColor.Green, false, null);
-            bool resumeRecording = control.rrSync.ResumeCurrentRecording();
-            if (resumeRecording == false)
+            bool requestResult = this.remoteRecorder.PauseCurrentRecording();
+            if (!requestResult)
             {
-                //If we can't resume the recording, flash red for 2 seconds and set light back to paused color before returning false
-                control.light.ChangeColor(DelcomColor.Red, false, TimeSpan.FromMilliseconds(2000));
+                Trace.TraceWarning("Failed to pause the recording. Flash red for 2 seconds and change light back to recording state.");
+                this.light.SetFlash(LightColor.Red);
                 Thread.Sleep(2000);
-                control.light.ChangeColor(DelcomColor.Yellow);
+                this.light.SetSolid(LightColor.Green);
             }
-            return resumeRecording;
+            return requestResult;
         }
 
-        //Pause recorder and turn blue light on
-        private static bool ActionRRPause(
-            StateMachine control,
-            RRState currentState,
-            StateMachineInputArgs inputArgs
-            )
+        /// <summary>
+        /// Start the next scheduled recording. Turn green light on, even though the actual recording has not started.
+        /// </summary>
+        private bool ActionRequestNextRecording(Input input)
         {
-            control.light.ChangeColor(DelcomColor.Yellow, false, null);
-
-            bool pauseRecording = control.rrSync.PauseCurrentRecording();
-            if (pauseRecording == false)
+            this.light.SetSolid(LightColor.Green);
+            bool requestResult = this.remoteRecorder.StartNextRecording();
+            if (!requestResult)
             {
-                //If we can't pause the recording, flash red for 2 seconds  and set light back to off before returning false
-                control.light.ChangeColor(DelcomColor.Red, false, TimeSpan.FromMilliseconds(2000));
+                Trace.TraceWarning("Failed to start the next recording. Turn on red for 2 seconds and turn off the light.");
+                this.light.SetSolid(LightColor.Red);
                 Thread.Sleep(2000);
-                control.light.ChangeColor(DelcomColor.Off);
+                this.light.SetSolid(LightColor.Off);
             }
-            return pauseRecording;
+            return requestResult;
         }
 
-        //Pause recorder and turn blue light on
-        private static bool ActionRRIsPaused(
-            StateMachine control,
-            RRState currentState,
-            StateMachineInputArgs inputArgs
-            )
+        /// <summary>
+        /// Start a new recording. Turn green light on, even though the actual recording has not started.
+        /// </summary>
+        private bool ActionRequestNewRecording(Input input)
         {
-            control.light.ChangeColor(DelcomColor.Yellow);
+            bool requestResult = false;
 
-            return true;
-        }
-
-        //Resume recorder after pause and turn green light on
-        private static bool ActionRRRecording(
-            StateMachine control,
-            RRState currentState,
-            StateMachineInputArgs inputArgs
-            )
-        {
-            control.light.ChangeColor(DelcomColor.Green);
-
-            return true;
-        }
-
-        //Start queued recording and turn green light on
-        private static bool ActionRecordNext(
-            StateMachine control,
-            RRState currentState,
-            StateMachineInputArgs inputArgs
-            )
-        {
-            control.light.ChangeColor(DelcomColor.Green, false, null);
-
-            bool startNext = control.rrSync.StartNextRecording();
-            if (startNext == false)
+            if (!this.remoteRecorder.SupportsStartNewRecording)
             {
-                //If we can't start the next recording, flash red for 2 seconds then return the light to off before returning false
-                control.light.ChangeColor(DelcomColor.Red, false, TimeSpan.FromMilliseconds(2000));
-                Thread.Sleep(2000);
-                control.light.ChangeColor(DelcomColor.Off);
-            }
-            return startNext;
-        }
-
-        //Start new recording and turn green light on
-        private static bool ActionRecordNew(
-            StateMachine control,
-            RRState currentState,
-            StateMachineInputArgs inputArgs
-            )
-        {
-            bool startNext = false;
-            if (control.rrSync.SupportsStartNewRecording)
-            {
-                control.light.ChangeColor(DelcomColor.Green, false, null);
-                startNext = control.rrSync.StartNewRecording();
+                Trace.TraceInformation("Failed to start a new recording because detected Remote Recorder version does not accept it.");
             }
             else
             {
-                //If we can't start the next recording, flash red for 2 seconds then return the light to off before returning false
-                control.light.ChangeColor(DelcomColor.Red, false, TimeSpan.FromMilliseconds(2000));
+                this.light.SetSolid(LightColor.Green);
+                requestResult = this.remoteRecorder.StartNewRecording();
+                if (!requestResult)
+                {
+                    Trace.TraceWarning("Failed to start a new recording. Turn on red for 2 seconds and turn off the light.");
+                }
+            }
+
+            if (!requestResult)
+            {
+                this.light.SetSolid(LightColor.Red);
                 Thread.Sleep(2000);
-                control.light.ChangeColor(DelcomColor.Off);
+                this.light.SetSolid(LightColor.Off);
             }
-            return startNext;
+
+            return requestResult;
         }
-
-        //Turn light off for preview
-        private static bool ActionPreview(
-            StateMachine control,
-            RRState currentState,
-            StateMachineInputArgs inputArgs
-            )
-        {
-            control.light.ChangeColor(DelcomColor.Off);
-
-            return true;
-        }
-
-        //Turn light red
-        private static bool ActionRRFaultOrDisconnect(
-            StateMachine control,
-            RRState currentState,
-            StateMachineInputArgs inputArgs
-            )
-        {
-            control.light.ChangeColor(DelcomColor.Red);
-
-            return true;
-        }
-
-        //Turn light off
-        private static bool ActionRRRunning(
-            StateMachine control,
-            RRState currentState,
-            StateMachineInputArgs inputArgs
-            )
-        {
-            control.light.ChangeColor(DelcomColor.Off);
-
-            return true;
-        }
-
-        //Turn light red
-        private static bool ActionNotQueuedButtonDown(
-            StateMachine control,
-            RRState currentState,
-            StateMachineInputArgs inputArgs
-            )
-        {
-            control.light.ChangeColor(DelcomColor.Red);
-
-            return true;
-        }
-
-        //Turn light red
-        private static bool ActionPreviewingButtonDown(
-            StateMachine control,
-            RRState currentState,
-            StateMachineInputArgs inputArgs
-            )
-        {
-            if (!control.rrSync.SupportsStartNewRecording)
-            {
-                control.light.ChangeColor(DelcomColor.Red);
-            }
-            return true;
-        }
-
-        //Turn light off
-        private static bool ActionNotQueuedButtonUp(
-            StateMachine control,
-            RRState currentState,
-            StateMachineInputArgs inputArgs
-            )
-        {
-            control.light.ChangeColor(DelcomColor.Off);
-
-            return true;
-        }
-
-        //Turn light off
-        private static bool ActionPreviewingButtonUp(
-            StateMachine control,
-            RRState currentState,
-            StateMachineInputArgs inputArgs
-            )
-        {
-            control.light.ChangeColor(DelcomColor.Off);
-
-            return true;
-        }
-
-        //Turn off light for ending loop
-        private static bool ActionLast(
-            StateMachine control,
-            RRState currentState,
-            StateMachineInputArgs inputArgs
-            )
-        {
-            control.light.ChangeColor(DelcomColor.Off);
-
-            return true;
-        }
-
-        #endregion StateMachine Actions
-
-        private delegate void StateMachineDelegate(StateMachineInputArgs inputArgs);
 
         /// <summary>
-        /// Process new StateMachineInput by looking up executing the appropriate
-        /// transition for the current state and this input event
+        /// Turn off the light.
         /// </summary>
-        public void ProcessStateMachineInput(StateMachineInputArgs inputArgs)
+        private bool ActionRespondStopped(Input input)
         {
-            Transition transition = m_transitionTable[(int)m_SMState,
-                                                          (int)inputArgs.Input];
-            if (Program.RunFromConsole)
-            {
-                Trace.Assert(transition.currentState == m_SMState);
-                Trace.Assert(transition.input == inputArgs.Input);
-                Trace.Assert(transition.actionId < ActionId.LAST);
+            this.light.SetSolid(LightColor.Off);
+            return true;
+        }
 
-                Trace.TraceInformation(DateTime.Now + ": SM State:" + m_SMState.ToString());
-                Trace.TraceInformation(DateTime.Now + ": SM Input:" + inputArgs.Input.ToString());
-                Trace.Flush();
+        /// <summary>
+        /// Turn yellow light on.
+        /// </summary>
+        private bool ActionRespondPaused(Input input)
+        {
+            this.light.SetSolid(LightColor.Yellow);
+            return true;
+        }
+
+        /// <summary>
+        /// Turn green light on.
+        /// </summary>
+        private bool ActionRespondRecording(Input input)
+        {
+            this.light.SetSolid(LightColor.Green);
+            return true;
+        }
+
+        /// <summary>
+        /// Turn light off.
+        /// </summary>
+        private bool ActionRespondPreviewing(Input input)
+        {
+            this.light.SetSolid(LightColor.Off);
+            return true;
+        }
+
+        /// <summary>
+        /// Turn red light on.
+        /// </summary>
+        private bool ActionRespondFaultedOrDisconnected(Input input)
+        {
+            this.light.SetSolid(LightColor.Red);
+            return true;
+        }
+
+        /// <summary>
+        /// Turn light off.
+        /// </summary>
+        private bool ActionRespondDormant(Input input)
+        {
+            this.light.SetSolid(LightColor.Off);
+            return true;
+        }
+
+        /// <summary>
+        /// Turn light red.
+        /// </summary>
+        private bool ActionRespondButtonDownForUnavailableOperation(Input input)
+        {
+            this.light.SetSolid(LightColor.Red);
+            return true;
+        }
+
+        /// <summary>
+        /// Turn light off.
+        /// </summary>
+        private bool ActionRespondButtonUpForUnavailableOperation(Input input)
+        {
+            this.light.SetSolid(LightColor.Off);
+            return true;
+        }
+
+        /// <summary>
+        /// Turn light red if new recording is not supported.
+        /// </summary>
+        private bool ActionRespondButtonDownInPreviewinging(Input input)
+        {
+            if (!this.remoteRecorder.SupportsStartNewRecording)
+            {
+                this.light.SetSolid(LightColor.Red);
             }
+            return true;
+        }
 
-            StateMachineAction action = m_actionTable[(int)transition.actionId];
-
-            if (action(this, State, inputArgs))
+        /// <summary>
+        /// Turn light off.
+        /// </summary>
+        private bool ActionRespondButtonUpInPreviewinging(Input input)
+        {
+            if (!this.remoteRecorder.SupportsStartNewRecording)
             {
-                m_SMState = transition.newState;
+                this.light.SetSolid(LightColor.Off);
             }
+            return true;
+        }
 
-            m_lastStateMachineInput = inputArgs.Input;
+        #endregion State machine actions
 
-            if (Program.RunFromConsole)
+        #region State machine transition table
+
+        /// <summary>
+        /// Combination of current state and input.
+        /// This defines a condition to trigger a transition (action and next state).
+        /// </summary>
+        /// 
+        private struct Condition
+        {
+            public readonly State CurrentState;
+            public readonly Input Input;
+            public Condition(State currentState, Input input)
             {
-                Trace.TraceInformation(DateTime.Now + ": SM NewState:" + m_SMState.ToString());
-                Trace.Flush();
+                this.CurrentState = currentState;
+                this.Input = input;
             }
         }
 
-        #endregion Methods
+        /// <summary>
+        /// Combination of action and next state.
+        /// This defines the transtion for a given condition.
+        /// </summary>
+        private struct Transition
+        {
+            public readonly ActionMethod ActionMethod;
+            public readonly State NextState;
+            public Transition(ActionMethod actionMethod, State nextState)
+            {
+                this.ActionMethod = actionMethod;
+                this.NextState = nextState;
+            }
+        }
 
         /// <summary>
-        /// Enumeration of the actions performed by the state machine
-        /// Needs to be kept in sync with the array of actions m_actionTable
+        /// Definitions of all state transitions.
+        /// If entry does not exist in this table, it is interpreted no action & state unchanged.
         /// </summary>
-        private enum ActionId
-        {
-            Noop = 0,
-            Stop = 1,
-            StoppingPaused = 2,
-            StoppingRecording = 3,
-            Resume = 4,
-            Pause = 5,
-            IsPaused = 6,
-            Recording = 7,
-            Next = 8,
-            New = 9,
-            Preview = 10,
-            FaultDisconnect = 11,
-            Running = 12,
-            CantRecordButtonDown = 13,
-            CantRecordButtonUp = 14,
-            PreviewingButtonDown = 15,
-            PreviewingButtonUp = 16,
-            LAST = 17,
-        };
-
-        // Must be kept in sync with enum ActionID
-        private StateMachineAction[] m_actionTable =
-        {
-            new StateMachineAction(ActionRRNoop),
-            new StateMachineAction(ActionRRStopped),
-            new StateMachineAction(ActionRRStoppingPaused),
-            new StateMachineAction(ActionRRStoppingRecording),
-            new StateMachineAction(ActionRRResume),
-            new StateMachineAction(ActionRRPause),
-            new StateMachineAction(ActionRRIsPaused),
-            new StateMachineAction(ActionRRRecording),
-            new StateMachineAction(ActionRecordNext),
-            new StateMachineAction(ActionRecordNew),
-            new StateMachineAction(ActionPreview),
-            new StateMachineAction(ActionRRFaultOrDisconnect),
-            new StateMachineAction(ActionRRRunning),
-            new StateMachineAction(ActionNotQueuedButtonDown),
-            new StateMachineAction(ActionNotQueuedButtonUp),
-            new StateMachineAction(StateMachine.ActionPreviewingButtonDown),
-            new StateMachineAction(StateMachine.ActionPreviewingButtonUp), 
-            new StateMachineAction(ActionLast),
-        };
+        private Dictionary<Condition, Transition> transitionTable = null;
 
         /// <summary>
-        /// Transition table for the state machine
-        /// that maps the current state and inputevent
-        /// to the appropriate transition action and new state
+        /// Fill out the transitiont table.
         /// </summary>
-        private static Transition[,] m_transitionTable =
+        private void InitializeTransitionTable()
         {
-            // The first two fields are just for convenience and debugging
-            //  Current State                          Incoming Event                                   Transition Action              Resulting State
+            if (this.transitionTable != null)
             {
-                new Transition(RRS.Init,               StateMachineInput.NoInput,                       ActionId.Noop,                  RRS.Init),
-                new Transition(RRS.Init,               StateMachineInput.RecorderPreviewing,            ActionId.Preview,               RRS.RRPreviewing),
-                new Transition(RRS.Init,               StateMachineInput.RecorderRecording,             ActionId.Recording,             RRS.RRRecording),
-                new Transition(RRS.Init,               StateMachineInput.RecorderPaused,                ActionId.IsPaused,              RRS.RRPaused),
-                new Transition(RRS.Init,               StateMachineInput.RecorderFaulted,               ActionId.FaultDisconnect,       RRS.RRFaulted),
-                new Transition(RRS.Init,               StateMachineInput.RecorderPreviewingQueued,      ActionId.Preview,               RRS.RRPreviewingQueued),
-                new Transition(RRS.Init,               StateMachineInput.RecorderStopped,               ActionId.Stop,                  RRS.RRStopped),
-                new Transition(RRS.Init,               StateMachineInput.RecorderRunning,               ActionId.Running,               RRS.RRRunning),
-                new Transition(RRS.Init,               StateMachineInput.Disconnected,                  ActionId.FaultDisconnect,       RRS.RRDisconnected),
-                new Transition(RRS.Init,               StateMachineInput.ButtonPressed,                 ActionId.Noop,                  RRS.Init),
-                new Transition(RRS.Init,               StateMachineInput.ButtonHeld,                    ActionId.Noop,                  RRS.Init),
-                new Transition(RRS.Init,               StateMachineInput.ButtonDown,                    ActionId.Noop,                  RRS.Init),
-                new Transition(RRS.Init,               StateMachineInput.ButtonUp,                      ActionId.Noop,                  RRS.Init),
-            },
-            {
-                new Transition(RRS.RRPreviewing,       StateMachineInput.NoInput,                       ActionId.Noop,                  RRS.RRPreviewing),
-                new Transition(RRS.RRPreviewing,       StateMachineInput.RecorderPreviewing,            ActionId.Noop,                  RRS.RRPreviewing),
-                new Transition(RRS.RRPreviewing,       StateMachineInput.RecorderRecording,             ActionId.Recording,             RRS.RRRecording),
-                new Transition(RRS.RRPreviewing,       StateMachineInput.RecorderPaused,                ActionId.IsPaused,              RRS.RRPaused),
-                new Transition(RRS.RRPreviewing,       StateMachineInput.RecorderFaulted,               ActionId.FaultDisconnect,       RRS.RRFaulted),
-                new Transition(RRS.RRPreviewing,       StateMachineInput.RecorderPreviewingQueued,      ActionId.Noop,                  RRS.RRPreviewingQueued),
-                new Transition(RRS.RRPreviewing,       StateMachineInput.RecorderStopped,               ActionId.Stop,                  RRS.RRStopped),
-                new Transition(RRS.RRPreviewing,       StateMachineInput.RecorderRunning,               ActionId.Running,               RRS.RRRunning),
-                new Transition(RRS.RRPreviewing,       StateMachineInput.Disconnected,                  ActionId.FaultDisconnect,       RRS.RRDisconnected),
-                new Transition(RRS.RRPreviewing,       StateMachineInput.ButtonPressed,                 ActionId.Noop,                  RRS.RRPreviewing),
-                new Transition(RRS.RRPreviewing,       StateMachineInput.ButtonHeld,                    ActionId.New,                   RRS.RRRecordingWait),
-                new Transition(RRS.RRPreviewing,       StateMachineInput.ButtonDown,                    ActionId.PreviewingButtonDown,  RRS.RRPreviewing),
-                new Transition(RRS.RRPreviewing,       StateMachineInput.ButtonUp,                      ActionId.PreviewingButtonUp,    RRS.RRPreviewing),
-            },
-            {
-                new Transition(RRS.RRPreviewingQueued, StateMachineInput.NoInput,                       ActionId.Noop,                  RRS.RRPreviewingQueued),
-                new Transition(RRS.RRPreviewingQueued, StateMachineInput.RecorderPreviewing,            ActionId.Noop,                  RRS.RRPreviewing),
-                new Transition(RRS.RRPreviewingQueued, StateMachineInput.RecorderRecording,             ActionId.Recording,             RRS.RRRecording),
-                new Transition(RRS.RRPreviewingQueued, StateMachineInput.RecorderPaused,                ActionId.IsPaused,              RRS.RRPaused),
-                new Transition(RRS.RRPreviewingQueued, StateMachineInput.RecorderFaulted,               ActionId.FaultDisconnect,       RRS.RRFaulted),
-                new Transition(RRS.RRPreviewingQueued, StateMachineInput.RecorderPreviewingQueued,      ActionId.Noop,                  RRS.RRPreviewingQueued),
-                new Transition(RRS.RRPreviewingQueued, StateMachineInput.RecorderStopped,               ActionId.Stop,                  RRS.RRStopped),
-                new Transition(RRS.RRPreviewingQueued, StateMachineInput.RecorderRunning,               ActionId.Running,               RRS.RRRunning),
-                new Transition(RRS.RRPreviewingQueued, StateMachineInput.Disconnected,                  ActionId.FaultDisconnect,       RRS.RRDisconnected),
-                new Transition(RRS.RRPreviewingQueued, StateMachineInput.ButtonPressed,                 ActionId.Next,                  RRS.RRRecordingWait),
-                new Transition(RRS.RRPreviewingQueued, StateMachineInput.ButtonHeld,                    ActionId.Next,                  RRS.RRRecordingWait),
-                new Transition(RRS.RRPreviewingQueued, StateMachineInput.ButtonDown,                    ActionId.Noop,                  RRS.RRPreviewingQueued),
-                new Transition(RRS.RRPreviewingQueued, StateMachineInput.ButtonUp,                      ActionId.Noop,                  RRS.RRPreviewingQueued),
-            },
+                throw new ApplicationException("InitializeTransitionTable is called for the second time.");
+            }
+            this.transitionTable = new Dictionary<Condition, Transition>();
 
-             {
-                new Transition(RRS.RRRecordingWait,     StateMachineInput.NoInput,                      ActionId.Noop,                 RRS.RRRecordingWait),
-                new Transition(RRS.RRRecordingWait,     StateMachineInput.RecorderPreviewing,           ActionId.Preview,              RRS.RRPreviewing),
-                new Transition(RRS.RRRecordingWait,     StateMachineInput.RecorderRecording,            ActionId.Recording,            RRS.RRRecording),
-                new Transition(RRS.RRRecordingWait,     StateMachineInput.RecorderPaused,               ActionId.IsPaused,             RRS.RRPaused),
-                new Transition(RRS.RRRecordingWait,     StateMachineInput.RecorderFaulted,              ActionId.Noop,                 RRS.RRFaulted),
-                new Transition(RRS.RRRecordingWait,     StateMachineInput.RecorderPreviewingQueued,     ActionId.Preview,              RRS.RRPreviewingQueued),
-                new Transition(RRS.RRRecordingWait,     StateMachineInput.RecorderStopped,              ActionId.Stop,                 RRS.RRStopped),
-                new Transition(RRS.RRRecordingWait,     StateMachineInput.RecorderRunning,              ActionId.Running,              RRS.RRRunning),
-                new Transition(RRS.RRRecordingWait,     StateMachineInput.Disconnected,                 ActionId.FaultDisconnect,      RRS.RRDisconnected),
-                new Transition(RRS.RRRecordingWait,     StateMachineInput.ButtonPressed,                ActionId.Noop,                 RRS.RRRecordingWait),
-                new Transition(RRS.RRRecordingWait,     StateMachineInput.ButtonHeld,                   ActionId.Noop,                 RRS.RRRecordingWait),
-                new Transition(RRS.RRRecordingWait,     StateMachineInput.ButtonDown,                   ActionId.Noop,                 RRS.RRRecordingWait),
-                new Transition(RRS.RRRecordingWait,     StateMachineInput.ButtonUp,                     ActionId.Noop,                 RRS.RRRecordingWait),
-            },
+            this.transitionTable.Add(new Condition(State.Init, Input.RecorderPreviewingNoNextSchedule), new Transition(this.ActionRespondPreviewing, State.PreviewingNoNextSchedule));
+            this.transitionTable.Add(new Condition(State.Init, Input.RecorderPreviewingWithNextSchedule), new Transition(this.ActionRespondPreviewing, State.PreviewingWithNextSchedule));
+            this.transitionTable.Add(new Condition(State.Init, Input.RecorderRecording), new Transition(this.ActionRespondRecording, State.Recording));
+            this.transitionTable.Add(new Condition(State.Init, Input.RecorderPaused), new Transition(this.ActionRespondPaused, State.Paused));
+            this.transitionTable.Add(new Condition(State.Init, Input.RecorderStopped), new Transition(this.ActionRespondStopped, State.Stopped));
+            this.transitionTable.Add(new Condition(State.Init, Input.RecorderDormant), new Transition(this.ActionRespondDormant, State.Dormant));
+            this.transitionTable.Add(new Condition(State.Init, Input.RecorderFaulted), new Transition(this.ActionRespondFaultedOrDisconnected, State.Faulted));
+            this.transitionTable.Add(new Condition(State.Init, Input.RecorderDisconnected), new Transition(this.ActionRespondFaultedOrDisconnected, State.Disconnected));
 
-            {
-                new Transition(RRS.RRRecording,        StateMachineInput.NoInput,                       ActionId.Noop,                 RRS.RRRecording),
-                new Transition(RRS.RRRecording,        StateMachineInput.RecorderPreviewing,            ActionId.Preview,              RRS.RRPreviewing),
-                new Transition(RRS.RRRecording,        StateMachineInput.RecorderRecording,             ActionId.Noop,                 RRS.RRRecording),
-                new Transition(RRS.RRRecording,        StateMachineInput.RecorderPaused,                ActionId.IsPaused,             RRS.RRPaused),
-                new Transition(RRS.RRRecording,        StateMachineInput.RecorderFaulted,               ActionId.FaultDisconnect,      RRS.RRFaulted),
-                new Transition(RRS.RRRecording,        StateMachineInput.RecorderPreviewingQueued,      ActionId.Preview,              RRS.RRPreviewingQueued),
-                new Transition(RRS.RRRecording,        StateMachineInput.RecorderStopped,               ActionId.Stop,                 RRS.RRStopped),
-                new Transition(RRS.RRRecording,        StateMachineInput.RecorderRunning,               ActionId.Running,              RRS.RRRunning),
-                new Transition(RRS.RRRecording,        StateMachineInput.Disconnected,                  ActionId.FaultDisconnect,      RRS.RRDisconnected),
-                new Transition(RRS.RRRecording,        StateMachineInput.ButtonPressed,                 ActionId.Pause,                RRS.RRPausedWait),
-                new Transition(RRS.RRRecording,        StateMachineInput.ButtonHeld,                    ActionId.StoppingRecording,    RRS.RRStoppingRecord),
-                new Transition(RRS.RRRecording,        StateMachineInput.ButtonDown,                    ActionId.Noop,                 RRS.RRRecording),
-                new Transition(RRS.RRRecording,        StateMachineInput.ButtonUp,                      ActionId.Noop,                 RRS.RRRecording),
-            },
+            this.transitionTable.Add(new Condition(State.PreviewingNoNextSchedule, Input.RecorderPreviewingWithNextSchedule), new Transition(this.ActionNone, State.PreviewingWithNextSchedule));
+            this.transitionTable.Add(new Condition(State.PreviewingNoNextSchedule, Input.RecorderRecording), new Transition(this.ActionRespondRecording, State.Recording));
+            this.transitionTable.Add(new Condition(State.PreviewingNoNextSchedule, Input.RecorderPaused), new Transition(this.ActionRespondPaused, State.Paused));
+            this.transitionTable.Add(new Condition(State.PreviewingNoNextSchedule, Input.RecorderStopped), new Transition(this.ActionRespondStopped, State.Stopped));
+            this.transitionTable.Add(new Condition(State.PreviewingNoNextSchedule, Input.RecorderDormant), new Transition(this.ActionRespondDormant, State.Dormant));
+            this.transitionTable.Add(new Condition(State.PreviewingNoNextSchedule, Input.RecorderFaulted), new Transition(this.ActionRespondFaultedOrDisconnected, State.Faulted));
+            this.transitionTable.Add(new Condition(State.PreviewingNoNextSchedule, Input.RecorderDisconnected), new Transition(this.ActionRespondFaultedOrDisconnected, State.Disconnected));
+            this.transitionTable.Add(new Condition(State.PreviewingNoNextSchedule, Input.ButtonHeld), new Transition(this.ActionRequestNewRecording, State.TransitionAnyToRecording));
+            this.transitionTable.Add(new Condition(State.PreviewingNoNextSchedule, Input.ButtonDown), new Transition(this.ActionRespondButtonDownInPreviewinging, State.PreviewingNoNextSchedule));
+            this.transitionTable.Add(new Condition(State.PreviewingNoNextSchedule, Input.ButtonUp), new Transition(this.ActionRespondButtonUpInPreviewinging, State.PreviewingNoNextSchedule));
 
-            {
-                new Transition(RRS.RRPausedWait,        StateMachineInput.NoInput,                      ActionId.Noop,                 RRS.RRPausedWait),
-                new Transition(RRS.RRPausedWait,        StateMachineInput.RecorderPreviewing,           ActionId.Preview,              RRS.RRPreviewing),
-                new Transition(RRS.RRPausedWait,        StateMachineInput.RecorderRecording,            ActionId.Recording,            RRS.RRRecording),
-                new Transition(RRS.RRPausedWait,        StateMachineInput.RecorderPaused,               ActionId.IsPaused,             RRS.RRPaused),
-                new Transition(RRS.RRPausedWait,        StateMachineInput.RecorderFaulted,              ActionId.Noop,                 RRS.RRFaulted),
-                new Transition(RRS.RRPausedWait,        StateMachineInput.RecorderPreviewingQueued,     ActionId.Preview,              RRS.RRPreviewingQueued),
-                new Transition(RRS.RRPausedWait,        StateMachineInput.RecorderStopped,              ActionId.Stop,                 RRS.RRStopped),
-                new Transition(RRS.RRPausedWait,        StateMachineInput.RecorderRunning,              ActionId.Running,              RRS.RRRunning),
-                new Transition(RRS.RRPausedWait,        StateMachineInput.Disconnected,                 ActionId.FaultDisconnect,      RRS.RRDisconnected),
-                new Transition(RRS.RRPausedWait,        StateMachineInput.ButtonPressed,                ActionId.Noop,                 RRS.RRPausedWait),
-                new Transition(RRS.RRPausedWait,        StateMachineInput.ButtonHeld,                   ActionId.Noop,                 RRS.RRPausedWait),
-                new Transition(RRS.RRPausedWait,        StateMachineInput.ButtonDown,                   ActionId.Noop,                 RRS.RRPausedWait),
-                new Transition(RRS.RRPausedWait,        StateMachineInput.ButtonUp,                     ActionId.Noop,                 RRS.RRPausedWait),
-            },
+            this.transitionTable.Add(new Condition(State.PreviewingWithNextSchedule, Input.RecorderRecording), new Transition(this.ActionRespondRecording, State.Recording));
+            this.transitionTable.Add(new Condition(State.PreviewingWithNextSchedule, Input.RecorderPaused), new Transition(this.ActionRespondPaused, State.Paused));
+            this.transitionTable.Add(new Condition(State.PreviewingWithNextSchedule, Input.RecorderStopped), new Transition(this.ActionRespondStopped, State.Stopped));
+            this.transitionTable.Add(new Condition(State.PreviewingWithNextSchedule, Input.RecorderDormant), new Transition(this.ActionRespondDormant, State.Dormant));
+            this.transitionTable.Add(new Condition(State.PreviewingWithNextSchedule, Input.RecorderFaulted), new Transition(this.ActionRespondFaultedOrDisconnected, State.Faulted));
+            this.transitionTable.Add(new Condition(State.PreviewingWithNextSchedule, Input.RecorderDisconnected), new Transition(this.ActionRespondFaultedOrDisconnected, State.Disconnected));
+            this.transitionTable.Add(new Condition(State.PreviewingWithNextSchedule, Input.ButtonPressed), new Transition(this.ActionRequestNextRecording, State.TransitionAnyToRecording));
+            this.transitionTable.Add(new Condition(State.PreviewingWithNextSchedule, Input.ButtonHeld), new Transition(this.ActionRequestNextRecording, State.TransitionAnyToRecording));
 
-            {
-                new Transition(RRS.RRPaused,           StateMachineInput.NoInput,                       ActionId.Noop,                 RRS.RRPaused),
-                new Transition(RRS.RRPaused,           StateMachineInput.RecorderPreviewing,            ActionId.Preview,              RRS.RRPreviewing),
-                new Transition(RRS.RRPaused,           StateMachineInput.RecorderRecording,             ActionId.Recording,            RRS.RRRecording),
-                new Transition(RRS.RRPaused,           StateMachineInput.RecorderPaused,                ActionId.Noop,                 RRS.RRPaused),
-                new Transition(RRS.RRPaused,           StateMachineInput.RecorderFaulted,               ActionId.FaultDisconnect,      RRS.RRFaulted),
-                new Transition(RRS.RRPaused,           StateMachineInput.RecorderPreviewingQueued,      ActionId.Preview,              RRS.RRPreviewingQueued),
-                new Transition(RRS.RRPaused,           StateMachineInput.RecorderStopped,               ActionId.Stop,                 RRS.RRStopped),
-                new Transition(RRS.RRPaused,           StateMachineInput.RecorderRunning,               ActionId.Running,              RRS.RRRunning),
-                new Transition(RRS.RRPaused,           StateMachineInput.Disconnected,                  ActionId.FaultDisconnect,      RRS.RRDisconnected),
-                new Transition(RRS.RRPaused,           StateMachineInput.ButtonPressed,                 ActionId.Resume,               RRS.RRRecordingWait),
-                new Transition(RRS.RRPaused,           StateMachineInput.ButtonHeld,                    ActionId.StoppingPaused,       RRS.RRStoppingPaused),
-                new Transition(RRS.RRPaused,           StateMachineInput.ButtonDown,                    ActionId.Noop,                 RRS.RRPaused),
-                new Transition(RRS.RRPaused,           StateMachineInput.ButtonUp,                      ActionId.Noop,                 RRS.RRPaused),
-            },
+            this.transitionTable.Add(new Condition(State.TransitionAnyToRecording, Input.RecorderPreviewingNoNextSchedule), new Transition(this.ActionRespondPreviewing, State.PreviewingNoNextSchedule));
+            this.transitionTable.Add(new Condition(State.TransitionAnyToRecording, Input.RecorderPreviewingWithNextSchedule), new Transition(this.ActionRespondPreviewing, State.PreviewingWithNextSchedule));
+            this.transitionTable.Add(new Condition(State.TransitionAnyToRecording, Input.RecorderRecording), new Transition(this.ActionRespondRecording, State.Recording));
+            this.transitionTable.Add(new Condition(State.TransitionAnyToRecording, Input.RecorderPaused), new Transition(this.ActionRespondPaused, State.Paused));
+            this.transitionTable.Add(new Condition(State.TransitionAnyToRecording, Input.RecorderStopped), new Transition(this.ActionRespondStopped, State.Stopped));
+            this.transitionTable.Add(new Condition(State.TransitionAnyToRecording, Input.RecorderDormant), new Transition(this.ActionRespondDormant, State.Dormant));
+            this.transitionTable.Add(new Condition(State.TransitionAnyToRecording, Input.RecorderFaulted), new Transition(this.ActionRespondFaultedOrDisconnected, State.Faulted));
+            this.transitionTable.Add(new Condition(State.TransitionAnyToRecording, Input.RecorderDisconnected), new Transition(this.ActionRespondFaultedOrDisconnected, State.Disconnected));
 
-              {
-                new Transition(RRS.RRStoppingPaused,   StateMachineInput.NoInput,                       ActionId.Noop,                 RRS.RRStoppingPaused),
-                new Transition(RRS.RRStoppingPaused,   StateMachineInput.RecorderPreviewing,            ActionId.Preview,              RRS.RRPreviewing),
-                new Transition(RRS.RRStoppingPaused,   StateMachineInput.RecorderRecording,             ActionId.Recording,            RRS.RRRecording),
-                new Transition(RRS.RRStoppingPaused,   StateMachineInput.RecorderPaused,                ActionId.IsPaused,             RRS.RRPaused),
-                new Transition(RRS.RRStoppingPaused,   StateMachineInput.RecorderFaulted,               ActionId.FaultDisconnect,      RRS.RRFaulted),
-                new Transition(RRS.RRStoppingPaused,   StateMachineInput.RecorderPreviewingQueued,      ActionId.Preview,              RRS.RRPreviewingQueued),
-                new Transition(RRS.RRStoppingPaused,   StateMachineInput.RecorderStopped,               ActionId.Stop,                 RRS.RRStopped),
-                new Transition(RRS.RRStoppingPaused,   StateMachineInput.RecorderRunning,               ActionId.Running,              RRS.RRRunning),
-                new Transition(RRS.RRStoppingPaused,   StateMachineInput.Disconnected,                  ActionId.FaultDisconnect,      RRS.RRDisconnected),
-                new Transition(RRS.RRStoppingPaused,   StateMachineInput.ButtonPressed,                 ActionId.Noop,                 RRS.RRStoppingPaused),
-                new Transition(RRS.RRStoppingPaused,   StateMachineInput.ButtonHeld,                    ActionId.Noop,                 RRS.RRStoppingPaused),
-                new Transition(RRS.RRStoppingPaused,   StateMachineInput.ButtonDown,                    ActionId.Noop,                 RRS.RRStoppingPaused),
-                new Transition(RRS.RRStoppingPaused,   StateMachineInput.ButtonUp,                      ActionId.Noop,                 RRS.RRStoppingPaused),
-            },
+            this.transitionTable.Add(new Condition(State.Recording, Input.RecorderPreviewingNoNextSchedule), new Transition(this.ActionRespondPreviewing, State.PreviewingNoNextSchedule));
+            this.transitionTable.Add(new Condition(State.Recording, Input.RecorderPreviewingWithNextSchedule), new Transition(this.ActionRespondPreviewing, State.PreviewingWithNextSchedule));
+            this.transitionTable.Add(new Condition(State.Recording, Input.RecorderPaused), new Transition(this.ActionRespondPaused, State.Paused));
+            this.transitionTable.Add(new Condition(State.Recording, Input.RecorderStopped), new Transition(this.ActionRespondStopped, State.Stopped));
+            this.transitionTable.Add(new Condition(State.Recording, Input.RecorderDormant), new Transition(this.ActionRespondDormant, State.Dormant));
+            this.transitionTable.Add(new Condition(State.Recording, Input.RecorderFaulted), new Transition(this.ActionRespondFaultedOrDisconnected, State.Faulted));
+            this.transitionTable.Add(new Condition(State.Recording, Input.RecorderDisconnected), new Transition(this.ActionRespondFaultedOrDisconnected, State.Disconnected));
+            this.transitionTable.Add(new Condition(State.Recording, Input.ButtonPressed), new Transition(this.ActionRequestPause, State.TransitionRecordingToPause));
+            this.transitionTable.Add(new Condition(State.Recording, Input.ButtonHeld), new Transition(this.ActionRequestStop, State.TransitionRecordingToStop));
 
-                  {
-                new Transition(RRS.RRStoppingRecord,   StateMachineInput.NoInput,                       ActionId.Noop,                 RRS.RRStoppingRecord),
-                new Transition(RRS.RRStoppingRecord,   StateMachineInput.RecorderPreviewing,            ActionId.Preview,              RRS.RRPreviewing),
-                new Transition(RRS.RRStoppingRecord,   StateMachineInput.RecorderRecording,             ActionId.Recording,            RRS.RRRecording),
-                new Transition(RRS.RRStoppingRecord,   StateMachineInput.RecorderPaused,                ActionId.IsPaused,             RRS.RRPaused),
-                new Transition(RRS.RRStoppingRecord,   StateMachineInput.RecorderFaulted,               ActionId.FaultDisconnect,      RRS.RRFaulted),
-                new Transition(RRS.RRStoppingRecord,   StateMachineInput.RecorderPreviewingQueued,      ActionId.Preview,              RRS.RRPreviewingQueued),
-                new Transition(RRS.RRStoppingRecord,   StateMachineInput.RecorderStopped,               ActionId.Stop,                 RRS.RRStopped),
-                new Transition(RRS.RRStoppingRecord,   StateMachineInput.RecorderRunning,               ActionId.Running,              RRS.RRRunning),
-                new Transition(RRS.RRStoppingRecord,   StateMachineInput.Disconnected,                  ActionId.FaultDisconnect,      RRS.RRDisconnected),
-                new Transition(RRS.RRStoppingRecord,   StateMachineInput.ButtonPressed,                 ActionId.Noop,                 RRS.RRStoppingRecord),
-                new Transition(RRS.RRStoppingRecord,   StateMachineInput.ButtonHeld,                    ActionId.Noop,                 RRS.RRStoppingRecord),
-                new Transition(RRS.RRStoppingRecord,   StateMachineInput.ButtonDown,                    ActionId.Noop,                 RRS.RRStoppingRecord),
-                new Transition(RRS.RRStoppingRecord,   StateMachineInput.ButtonUp,                      ActionId.Noop,                 RRS.RRStoppingRecord),
-            },
-            {
-                new Transition(RRS.RRStopped,          StateMachineInput.NoInput,                       ActionId.Noop,                 RRS.RRPaused),
-                new Transition(RRS.RRStopped,          StateMachineInput.RecorderPreviewing,            ActionId.Preview,              RRS.RRPreviewing),
-                new Transition(RRS.RRStopped,          StateMachineInput.RecorderRecording,             ActionId.Recording,            RRS.RRRecording),
-                new Transition(RRS.RRStopped,          StateMachineInput.RecorderPaused,                ActionId.IsPaused,             RRS.RRPaused),
-                new Transition(RRS.RRStopped,          StateMachineInput.RecorderFaulted,               ActionId.FaultDisconnect,      RRS.RRFaulted),
-                new Transition(RRS.RRStopped,          StateMachineInput.RecorderPreviewingQueued,      ActionId.Preview,              RRS.RRPreviewingQueued),
-                new Transition(RRS.RRStopped,          StateMachineInput.RecorderStopped,               ActionId.Noop,                 RRS.RRStopped),
-                new Transition(RRS.RRStopped,          StateMachineInput.RecorderRunning,               ActionId.Running,              RRS.RRRunning),
-                new Transition(RRS.RRStopped,          StateMachineInput.Disconnected,                  ActionId.FaultDisconnect,      RRS.RRDisconnected),
-                new Transition(RRS.RRStopped,          StateMachineInput.ButtonPressed,                 ActionId.Noop,                 RRS.RRStopped),
-                new Transition(RRS.RRStopped,          StateMachineInput.ButtonHeld,                    ActionId.Noop,                 RRS.RRStopped),
-                new Transition(RRS.RRStopped,          StateMachineInput.ButtonDown,                    ActionId.Noop,                 RRS.RRStopped),
-                new Transition(RRS.RRStopped,          StateMachineInput.ButtonUp,                      ActionId.Noop,                 RRS.RRStopped),
-            },
-            {
-                new Transition(RRS.RRRunning,          StateMachineInput.NoInput,                       ActionId.Noop,                 RRS.RRPaused),
-                new Transition(RRS.RRRunning,          StateMachineInput.RecorderPreviewing,            ActionId.Preview,              RRS.RRPreviewing),
-                new Transition(RRS.RRRunning,          StateMachineInput.RecorderRecording,             ActionId.Recording,            RRS.RRRecording),
-                new Transition(RRS.RRRunning,          StateMachineInput.RecorderPaused,                ActionId.IsPaused,             RRS.RRPaused),
-                new Transition(RRS.RRRunning,          StateMachineInput.RecorderFaulted,               ActionId.FaultDisconnect,      RRS.RRFaulted),
-                new Transition(RRS.RRRunning,          StateMachineInput.RecorderPreviewingQueued,      ActionId.Preview,              RRS.RRPreviewingQueued),
-                new Transition(RRS.RRRunning,          StateMachineInput.RecorderStopped,               ActionId.Stop,                 RRS.RRStopped),
-                new Transition(RRS.RRRunning,          StateMachineInput.RecorderRunning,               ActionId.Noop,                 RRS.RRRunning),
-                new Transition(RRS.RRRunning,          StateMachineInput.Disconnected,                  ActionId.FaultDisconnect,      RRS.RRDisconnected),
-                new Transition(RRS.RRRunning,          StateMachineInput.ButtonPressed,                 ActionId.Noop,                 RRS.RRRunning),
-                new Transition(RRS.RRRunning,          StateMachineInput.ButtonHeld,                    ActionId.Noop,                 RRS.RRRunning),
-                new Transition(RRS.RRRunning,          StateMachineInput.ButtonDown,                    ActionId.CantRecordButtonDown, RRS.RRRunning),
-                new Transition(RRS.RRRunning,          StateMachineInput.ButtonUp,                      ActionId.CantRecordButtonUp,   RRS.RRRunning),
-            },
-            {
-                new Transition(RRS.RRFaulted,          StateMachineInput.NoInput,                       ActionId.Noop,                 RRS.RRPaused),
-                new Transition(RRS.RRFaulted,          StateMachineInput.RecorderPreviewing,            ActionId.Preview,              RRS.RRPreviewing),
-                new Transition(RRS.RRFaulted,          StateMachineInput.RecorderRecording,             ActionId.Recording,            RRS.RRRecording),
-                new Transition(RRS.RRFaulted,          StateMachineInput.RecorderPaused,                ActionId.IsPaused,             RRS.RRPaused),
-                new Transition(RRS.RRFaulted,          StateMachineInput.RecorderFaulted,               ActionId.Noop,                 RRS.RRFaulted),
-                new Transition(RRS.RRFaulted,          StateMachineInput.RecorderPreviewingQueued,      ActionId.Preview,              RRS.RRPreviewingQueued),
-                new Transition(RRS.RRFaulted,          StateMachineInput.RecorderStopped,               ActionId.Stop,                 RRS.RRStopped),
-                new Transition(RRS.RRFaulted,          StateMachineInput.RecorderRunning,               ActionId.Running,              RRS.RRRunning),
-                new Transition(RRS.RRFaulted,          StateMachineInput.Disconnected,                  ActionId.FaultDisconnect,      RRS.RRDisconnected),
-                new Transition(RRS.RRFaulted,          StateMachineInput.ButtonPressed,                 ActionId.Noop,                 RRS.RRFaulted),
-                new Transition(RRS.RRFaulted,          StateMachineInput.ButtonHeld,                    ActionId.Noop,                 RRS.RRFaulted),
-                new Transition(RRS.RRFaulted,          StateMachineInput.ButtonDown,                    ActionId.CantRecordButtonDown, RRS.RRFaulted),
-                new Transition(RRS.RRFaulted,          StateMachineInput.ButtonUp,                      ActionId.CantRecordButtonUp,   RRS.RRFaulted),
-            },
+            this.transitionTable.Add(new Condition(State.TransitionRecordingToPause, Input.RecorderPreviewingNoNextSchedule), new Transition(this.ActionRespondPreviewing, State.PreviewingNoNextSchedule));
+            this.transitionTable.Add(new Condition(State.TransitionRecordingToPause, Input.RecorderPreviewingWithNextSchedule), new Transition(this.ActionRespondPreviewing, State.PreviewingWithNextSchedule));
+            this.transitionTable.Add(new Condition(State.TransitionRecordingToPause, Input.RecorderRecording), new Transition(this.ActionRespondRecording, State.Recording));
+            this.transitionTable.Add(new Condition(State.TransitionRecordingToPause, Input.RecorderPaused), new Transition(this.ActionRespondPaused, State.Paused));
+            this.transitionTable.Add(new Condition(State.TransitionRecordingToPause, Input.RecorderStopped), new Transition(this.ActionRespondStopped, State.Stopped));
+            this.transitionTable.Add(new Condition(State.TransitionRecordingToPause, Input.RecorderDormant), new Transition(this.ActionRespondDormant, State.Dormant));
+            this.transitionTable.Add(new Condition(State.TransitionRecordingToPause, Input.RecorderFaulted), new Transition(this.ActionRespondFaultedOrDisconnected, State.Faulted));
+            this.transitionTable.Add(new Condition(State.TransitionRecordingToPause, Input.RecorderDisconnected), new Transition(this.ActionRespondFaultedOrDisconnected, State.Disconnected));
 
-             {
-                new Transition(RRS.RRDisconnected,     StateMachineInput.NoInput,                       ActionId.Noop,                 RRS.RRPaused),
-                new Transition(RRS.RRDisconnected,     StateMachineInput.RecorderPreviewing,            ActionId.Preview,              RRS.RRPreviewing),
-                new Transition(RRS.RRDisconnected,     StateMachineInput.RecorderRecording,             ActionId.Recording,            RRS.RRRecording),
-                new Transition(RRS.RRDisconnected,     StateMachineInput.RecorderPaused,                ActionId.IsPaused,             RRS.RRPaused),
-                new Transition(RRS.RRDisconnected,     StateMachineInput.RecorderFaulted,               ActionId.Noop,                 RRS.RRFaulted),
-                new Transition(RRS.RRDisconnected,     StateMachineInput.RecorderPreviewingQueued,      ActionId.Preview,              RRS.RRPreviewingQueued),
-                new Transition(RRS.RRDisconnected,     StateMachineInput.RecorderStopped,               ActionId.Stop,                 RRS.RRStopped),
-                new Transition(RRS.RRDisconnected,     StateMachineInput.RecorderRunning,               ActionId.Running,              RRS.RRRunning),
-                new Transition(RRS.RRDisconnected,     StateMachineInput.Disconnected,                  ActionId.Noop,                 RRS.RRDisconnected),
-                new Transition(RRS.RRDisconnected,     StateMachineInput.ButtonPressed,                 ActionId.Noop,                 RRS.RRDisconnected),
-                new Transition(RRS.RRDisconnected,     StateMachineInput.ButtonHeld,                    ActionId.Noop,                 RRS.RRDisconnected),
-                new Transition(RRS.RRDisconnected,     StateMachineInput.ButtonDown,                    ActionId.CantRecordButtonDown, RRS.RRDisconnected),
-                new Transition(RRS.RRDisconnected,     StateMachineInput.ButtonUp,                      ActionId.CantRecordButtonUp,   RRS.RRDisconnected),
-            },
-        };
+            this.transitionTable.Add(new Condition(State.Paused, Input.RecorderPreviewingNoNextSchedule), new Transition(this.ActionRespondPreviewing, State.PreviewingNoNextSchedule));
+            this.transitionTable.Add(new Condition(State.Paused, Input.RecorderPreviewingWithNextSchedule), new Transition(this.ActionRespondPreviewing, State.PreviewingWithNextSchedule));
+            this.transitionTable.Add(new Condition(State.Paused, Input.RecorderRecording), new Transition(this.ActionRespondRecording, State.Recording));
+            this.transitionTable.Add(new Condition(State.Paused, Input.RecorderStopped), new Transition(this.ActionRespondStopped, State.Stopped));
+            this.transitionTable.Add(new Condition(State.Paused, Input.RecorderDormant), new Transition(this.ActionRespondDormant, State.Dormant));
+            this.transitionTable.Add(new Condition(State.Paused, Input.RecorderFaulted), new Transition(this.ActionRespondFaultedOrDisconnected, State.Faulted));
+            this.transitionTable.Add(new Condition(State.Paused, Input.RecorderDisconnected), new Transition(this.ActionRespondFaultedOrDisconnected, State.Disconnected));
+            this.transitionTable.Add(new Condition(State.Paused, Input.ButtonPressed), new Transition(this.ActionRequestResume, State.TransitionAnyToRecording));
+            this.transitionTable.Add(new Condition(State.Paused, Input.ButtonHeld), new Transition(this.ActionRequestStop, State.TransitionPausedToStop));
 
-        //Set initial state and input
-        private RRState m_SMState = RRState.Init;
+            this.transitionTable.Add(new Condition(State.TransitionPausedToStop, Input.RecorderPreviewingNoNextSchedule), new Transition(this.ActionRespondPreviewing, State.PreviewingNoNextSchedule));
+            this.transitionTable.Add(new Condition(State.TransitionPausedToStop, Input.RecorderPreviewingWithNextSchedule), new Transition(this.ActionRespondPreviewing, State.PreviewingWithNextSchedule));
+            this.transitionTable.Add(new Condition(State.TransitionPausedToStop, Input.RecorderRecording), new Transition(this.ActionRespondRecording, State.Recording));
+            this.transitionTable.Add(new Condition(State.TransitionPausedToStop, Input.RecorderPaused), new Transition(this.ActionRespondPaused, State.Paused));
+            this.transitionTable.Add(new Condition(State.TransitionPausedToStop, Input.RecorderStopped), new Transition(this.ActionRespondStopped, State.Stopped));
+            this.transitionTable.Add(new Condition(State.TransitionPausedToStop, Input.RecorderDormant), new Transition(this.ActionRespondDormant, State.Dormant));
+            this.transitionTable.Add(new Condition(State.TransitionPausedToStop, Input.RecorderFaulted), new Transition(this.ActionRespondFaultedOrDisconnected, State.Faulted));
+            this.transitionTable.Add(new Condition(State.TransitionPausedToStop, Input.RecorderDisconnected), new Transition(this.ActionRespondFaultedOrDisconnected, State.Disconnected));
 
-        private StateMachineInput m_lastStateMachineInput = StateMachineInput.NoInput;
+            this.transitionTable.Add(new Condition(State.TransitionRecordingToStop, Input.RecorderPreviewingNoNextSchedule), new Transition(this.ActionRespondPreviewing, State.PreviewingNoNextSchedule));
+            this.transitionTable.Add(new Condition(State.TransitionRecordingToStop, Input.RecorderPreviewingWithNextSchedule), new Transition(this.ActionRespondPreviewing, State.PreviewingWithNextSchedule));
+            this.transitionTable.Add(new Condition(State.TransitionRecordingToStop, Input.RecorderRecording), new Transition(this.ActionRespondRecording, State.Recording));
+            this.transitionTable.Add(new Condition(State.TransitionRecordingToStop, Input.RecorderPaused), new Transition(this.ActionRespondPaused, State.Paused));
+            this.transitionTable.Add(new Condition(State.TransitionRecordingToStop, Input.RecorderStopped), new Transition(this.ActionRespondStopped, State.Stopped));
+            this.transitionTable.Add(new Condition(State.TransitionRecordingToStop, Input.RecorderDormant), new Transition(this.ActionRespondDormant, State.Dormant));
+            this.transitionTable.Add(new Condition(State.TransitionRecordingToStop, Input.RecorderFaulted), new Transition(this.ActionRespondFaultedOrDisconnected, State.Faulted));
+            this.transitionTable.Add(new Condition(State.TransitionRecordingToStop, Input.RecorderDisconnected), new Transition(this.ActionRespondFaultedOrDisconnected, State.Disconnected));
 
-        #endregion Private
+            this.transitionTable.Add(new Condition(State.Stopped, Input.RecorderPreviewingNoNextSchedule), new Transition(this.ActionRespondPreviewing, State.PreviewingNoNextSchedule));
+            this.transitionTable.Add(new Condition(State.Stopped, Input.RecorderPreviewingWithNextSchedule), new Transition(this.ActionRespondPreviewing, State.PreviewingWithNextSchedule));
+            this.transitionTable.Add(new Condition(State.Stopped, Input.RecorderRecording), new Transition(this.ActionRespondRecording, State.Recording));
+            this.transitionTable.Add(new Condition(State.Stopped, Input.RecorderPaused), new Transition(this.ActionRespondPaused, State.Paused));
+            this.transitionTable.Add(new Condition(State.Stopped, Input.RecorderDormant), new Transition(this.ActionRespondDormant, State.Dormant));
+            this.transitionTable.Add(new Condition(State.Stopped, Input.RecorderFaulted), new Transition(this.ActionRespondFaultedOrDisconnected, State.Faulted));
+            this.transitionTable.Add(new Condition(State.Stopped, Input.RecorderDisconnected), new Transition(this.ActionRespondFaultedOrDisconnected, State.Disconnected));
+
+            this.transitionTable.Add(new Condition(State.Dormant, Input.RecorderPreviewingNoNextSchedule), new Transition(this.ActionRespondPreviewing, State.PreviewingNoNextSchedule));
+            this.transitionTable.Add(new Condition(State.Dormant, Input.RecorderPreviewingWithNextSchedule), new Transition(this.ActionRespondPreviewing, State.PreviewingWithNextSchedule));
+            this.transitionTable.Add(new Condition(State.Dormant, Input.RecorderRecording), new Transition(this.ActionRespondRecording, State.Recording));
+            this.transitionTable.Add(new Condition(State.Dormant, Input.RecorderPaused), new Transition(this.ActionRespondPaused, State.Paused));
+            this.transitionTable.Add(new Condition(State.Dormant, Input.RecorderStopped), new Transition(this.ActionRespondStopped, State.Stopped));
+            this.transitionTable.Add(new Condition(State.Dormant, Input.RecorderFaulted), new Transition(this.ActionRespondFaultedOrDisconnected, State.Faulted));
+            this.transitionTable.Add(new Condition(State.Dormant, Input.RecorderDisconnected), new Transition(this.ActionRespondFaultedOrDisconnected, State.Disconnected));
+            this.transitionTable.Add(new Condition(State.Dormant, Input.ButtonDown), new Transition(this.ActionRespondButtonDownForUnavailableOperation, State.Dormant));
+            this.transitionTable.Add(new Condition(State.Dormant, Input.ButtonUp), new Transition(this.ActionRespondButtonUpForUnavailableOperation, State.Dormant));
+
+            this.transitionTable.Add(new Condition(State.Faulted, Input.RecorderPreviewingNoNextSchedule), new Transition(this.ActionRespondPreviewing, State.PreviewingNoNextSchedule));
+            this.transitionTable.Add(new Condition(State.Faulted, Input.RecorderPreviewingWithNextSchedule), new Transition(this.ActionRespondPreviewing, State.PreviewingWithNextSchedule));
+            this.transitionTable.Add(new Condition(State.Faulted, Input.RecorderRecording), new Transition(this.ActionRespondRecording, State.Recording));
+            this.transitionTable.Add(new Condition(State.Faulted, Input.RecorderPaused), new Transition(this.ActionRespondPaused, State.Paused));
+            this.transitionTable.Add(new Condition(State.Faulted, Input.RecorderStopped), new Transition(this.ActionRespondStopped, State.Stopped));
+            this.transitionTable.Add(new Condition(State.Faulted, Input.RecorderDormant), new Transition(this.ActionRespondDormant, State.Dormant));
+            this.transitionTable.Add(new Condition(State.Faulted, Input.RecorderDisconnected), new Transition(this.ActionRespondFaultedOrDisconnected, State.Disconnected));
+            this.transitionTable.Add(new Condition(State.Faulted, Input.ButtonDown), new Transition(this.ActionRespondButtonDownForUnavailableOperation, State.Faulted));
+            this.transitionTable.Add(new Condition(State.Faulted, Input.ButtonUp), new Transition(this.ActionRespondButtonUpForUnavailableOperation, State.Faulted));
+
+            this.transitionTable.Add(new Condition(State.Disconnected, Input.RecorderPreviewingNoNextSchedule), new Transition(this.ActionRespondPreviewing, State.PreviewingNoNextSchedule));
+            this.transitionTable.Add(new Condition(State.Disconnected, Input.RecorderPreviewingWithNextSchedule), new Transition(this.ActionRespondPreviewing, State.PreviewingWithNextSchedule));
+            this.transitionTable.Add(new Condition(State.Disconnected, Input.RecorderRecording), new Transition(this.ActionRespondRecording, State.Recording));
+            this.transitionTable.Add(new Condition(State.Disconnected, Input.RecorderPaused), new Transition(this.ActionRespondPaused, State.Paused));
+            this.transitionTable.Add(new Condition(State.Disconnected, Input.RecorderStopped), new Transition(this.ActionRespondStopped, State.Stopped));
+            this.transitionTable.Add(new Condition(State.Disconnected, Input.RecorderDormant), new Transition(this.ActionRespondDormant, State.Dormant));
+            this.transitionTable.Add(new Condition(State.Disconnected, Input.RecorderFaulted), new Transition(this.ActionRespondFaultedOrDisconnected, State.Faulted));
+            this.transitionTable.Add(new Condition(State.Disconnected, Input.ButtonDown), new Transition(this.ActionRespondButtonDownForUnavailableOperation, State.Disconnected));
+            this.transitionTable.Add(new Condition(State.Disconnected, Input.ButtonUp), new Transition(this.ActionRespondButtonUpForUnavailableOperation, State.Disconnected));
+        }
+
+        #endregion State machine transition table
+
+        #region Empty ILightControl
+
+        class EmptyLightControl : ILightControl
+        {
+            public void SetSolid(LightColor color) { }
+            public void SetFlash(LightColor color) { }
+        }
+
+        #endregion Empty ILightControl
     }
 }

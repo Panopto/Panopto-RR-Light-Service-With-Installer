@@ -1,44 +1,48 @@
 ﻿using System;
 using System.Diagnostics;
 using System.IO;
-using System.Net;
 using System.ServiceProcess;
 
 namespace RRLightProgram
 {
     internal static class Program
     {
-        public static bool RunFromConsole = false;
         /// <summary>
         /// The main entry point for the application.
         /// </summary>
         private static void Main(string [] args)
         {
-            if (args.Length > 0
-                && args[0] == "-runFromConsole")
+            var service = new RRLightService();
+
+            if (Environment.UserInteractive)
             {
-                RunFromConsole = true;
+                // Application runs as an independent program (e.g. from console), but not as Windows service.
 
-                //Create "Logs" directory if it doesn't exist
-                DirectoryInfo di = new DirectoryInfo(Directory.GetCurrentDirectory());
-                di.CreateSubdirectory("Logs");
+                // As this project uses Windows Form application as the base, it cannot run as console application.
+                // Instead, all messages will be redirected to log file in "Logs" subcirectory.
+                DirectoryInfo currentDirectory = new DirectoryInfo(Directory.GetCurrentDirectory());
+                DirectoryInfo logsDirectory = currentDirectory.CreateSubdirectory("Logs");
+                var listner = new TextWriterTraceListener(
+                    Path.Combine(logsDirectory.FullName, string.Format("RRLightServiceDebug-{0:yy-MM-dd-HH-mm}.log", DateTime.UtcNow)));
+                listner.TraceOutputOptions |= TraceOptions.DateTime;
+                Trace.Listeners.Add(listner);
+                Trace.AutoFlush = true;
 
-                //Set up a trace listener to output debug information to file
-                Trace.Listeners.Add(new TextWriterTraceListener(Directory.GetCurrentDirectory() + "\\Logs\\RRLightServiceDebug-" + DateTime.Now.ToString("yy-MM-dd") + DateTime.Now.ToString(".hh-mm-ss") + ".log", "RRLightServiceListener"));
-                Trace.TraceInformation("Service running with -runFromConsole flag. Started at {0}.", DateTime.Now);
-                Trace.Flush();
+                // Always enable verbose trace.
+                TraceVerbose.Enabled = true;
 
-                RRLightService lightService = new RRLightService();
-                lightService.ManualRun();
+                service.ManualRun();
             }
             else
             {
-                ServiceBase[] ServicesToRun;
-                ServicesToRun = new ServiceBase[]
-                {
-                    new RRLightService()
-                };
-                ServiceBase.Run(ServicesToRun);
+                // Send trace messages to Event Log.
+                var listner = new EventLogTraceListener("PanoptoRRLightService");
+                Trace.Listeners.Add(listner);
+
+                // Enable verbose trace if config is set.
+                TraceVerbose.Enabled = Properties.Settings.Default.EnableVerboseTrace;
+
+                ServiceBase.Run(new ServiceBase[] { service });
             }
         }
     }
