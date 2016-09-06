@@ -169,7 +169,7 @@ namespace RRLightProgram
                     result = this.controller.PauseCurrentRecording(state.CurrentRecording.Id);
                     if (!result)
                     {
-                        Trace.TraceInformation("PauseCurrentRecording failed. This is expected if the recording is broadcast.");
+                        Trace.TraceInformation("PauseCurrentRecording failed. This is expected if the recording is webcast.");
                     }
                 }
             }

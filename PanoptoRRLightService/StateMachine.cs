@@ -79,7 +79,7 @@ namespace RRLightProgram
             this.light = lightControl ?? new EmptyLightControl();
 
             this.inputProcessThread = new Thread(this.InputProcessLoop);
-            Trace.TraceInformation("State machine is starting.");
+            TraceVerbose.Trace("State machine is starting.");
             inputProcessThread.Start();
         }
 
@@ -93,11 +93,11 @@ namespace RRLightProgram
                 throw new ApplicationException("StateMachine.Stop() is called while not running.");
             }
 
-            Trace.TraceInformation("State machine is being stopped.");
+            TraceVerbose.Trace("State machine is being stopped.");
             this.stopRequested.Set();
             this.inputProcessThread.Join();
             this.inputProcessThread = null;
-            Trace.TraceInformation("State machine has stopped.");
+            TraceVerbose.Trace("State machine has stopped.");
         }
 
         #endregion Initialization and cleanup
@@ -282,7 +282,7 @@ namespace RRLightProgram
 
             if (!this.remoteRecorder.SupportsStartNewRecording)
             {
-                Trace.TraceInformation("Failed to start a new recording because detected Remote Recorder version does not accept external request.");
+                Trace.TraceInformation("Failed to start a new recording because detected Remote Recorder version does not accept it.");
             }
             else
             {
