@@ -253,41 +253,39 @@ namespace RRLightProgram
         /// </summary>
         private void SetUpController()
         {
-            using (ServiceController serviceController = new ServiceController(RemoteRecorderServiceName))
+            // Wait until RR service has started. Message every minute while waiting.
+            while (true)
             {
-                // Wait until RR service has started. Message every minute while waiting.
-                while (true)
+                try
                 {
-                    try
+                    using (ServiceController serviceController = new ServiceController(RemoteRecorderServiceName))
                     {
                         serviceController.WaitForStatus(ServiceControllerStatus.Running, TimeSpan.FromSeconds(60.0));
                         break;
                     }
-                    catch (Exception e)
-                    {
-                        // InvalidOperationException is not documented, but it is actually thrown immedately after the system boot.
-                        if (e is System.TimeoutException || e is InvalidOperationException)
-                        {
-                            Trace.TraceInformation("RemoteRecorderSync: Waiting for the recorder to start up.");
-                        }
-                        else
-                        {
-                            throw; // unhandled
-                        }
-                    }
                 }
-
-                // ServiceController.WaitForStatus() may return before the service has completely started,
-                // so we have to give it a bit more time. Note that if this break isn't long enough,
-                // we'll hit an exception later and return to HandleRRException again, so it's safe.
-                Thread.Sleep(TimeSpan.FromSeconds(1.0));
-
-                ChannelFactory<IRemoteRecorderController> channelFactory = new ChannelFactory<IRemoteRecorderController>(
-                    new NetNamedPipeBinding(),
-                    new EndpointAddress(Panopto.RemoteRecorderAPI.V1.Constants.ControllerEndpoint));
-
-                this.controller = channelFactory.CreateChannel();
+                catch (System.TimeoutException)
+                {
+                    Trace.TraceInformation("RemoteRecorderSync: Waiting for the recorder to start up.");
+                }
+                catch (InvalidOperationException)
+                {
+                    // InvalidOperationException is not documented, but it is actually thrown immedately after the system boot.
+                    Trace.TraceInformation("RemoteRecorderSync: Service controller is not yet unavailable. Retry after 60 seconds.");
+                    Thread.Sleep(TimeSpan.FromSeconds(60.0));
+                }
             }
+
+            // ServiceController.WaitForStatus() may return before the service has completely started,
+            // so we have to give it a bit more time. Note that if this break isn't long enough,
+            // we'll hit an exception later and return to HandleRRException again, so it's safe.
+            Thread.Sleep(TimeSpan.FromSeconds(1.0));
+
+            ChannelFactory<IRemoteRecorderController> channelFactory = new ChannelFactory<IRemoteRecorderController>(
+                new NetNamedPipeBinding(),
+                new EndpointAddress(Panopto.RemoteRecorderAPI.V1.Constants.ControllerEndpoint));
+
+            this.controller = channelFactory.CreateChannel();
         }
 
         /// <summary>
