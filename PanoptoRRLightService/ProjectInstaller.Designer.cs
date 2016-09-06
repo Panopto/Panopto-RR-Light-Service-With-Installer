@@ -43,6 +43,8 @@
             this.ServiceInstaller.Description = "Panopto RR light service";
             this.ServiceInstaller.DisplayName = "PanoptoRRLightService";
             this.ServiceInstaller.ServiceName = "PanoptoRRLightService";
+            this.ServiceInstaller.ServicesDependedOn = new string[] {
+        "PanoptoRemoteRecorderService"};
             this.ServiceInstaller.AfterInstall += new System.Configuration.Install.InstallEventHandler(this.ServiceInstaller_AfterInstall);
             // 
             // ProjectInstaller
