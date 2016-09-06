@@ -48,6 +48,12 @@ namespace RRLightProgram
         /// </summary>
         private const int MaxLightRetries = 5;
 
+
+        /// <summary>
+        /// Interval for the retry when the device is reported as disconnected.
+        /// </summary>
+        private static readonly TimeSpan DeviceConnectionCheckRetryInterval = TimeSpan.FromSeconds(1.0);
+        
         /// <summary>
         /// Interval when retrying to connect the device.
         /// </summary>
@@ -236,9 +242,9 @@ namespace RRLightProgram
         /// </summary>
         public DelcomButtonState GetButtonState()
         {
-            if (!this.IsButtonConnected())
+            if (!this.DeviceIsConnected())
             {
-                Trace.TraceWarning("Delcom light device disconnection seems disconnected. Reconnecting.");
+                Trace.TraceWarning("Delcom light device seems disconnected. Reconnecting.");
                 ReopenDevice();
             }
 
@@ -248,20 +254,26 @@ namespace RRLightProgram
         /// <summary>
         /// Determine whether the current device is still connected
         /// </summary>
-        private bool IsButtonConnected()
+        private bool DeviceIsConnected()
         {
             if (this.deviceHandle == InvalidDevcieHandle)
             {
                 return false;
             }
 
-            //If no longer connected we will get a return value of 0 or 255 (manual says 0 but in practice we get 255)
-            int deviceVersion = Delcom.DelcomReadDeviceVersion(this.deviceHandle);           
+            // If no longer connected we will get a return value of 0 or 255 (manual says 0 but in practice we get 255).
+            int deviceVersion = Delcom.DelcomReadDeviceVersion(this.deviceHandle);
             if (deviceVersion == 0 || deviceVersion == 255)
             {
-                return false;
+                // This frequently happens (once in a few minutes) even on the healthy system.
+                // Retry once before reporting back.
+                Thread.Sleep(DelcomLightWrapper.DeviceConnectionCheckRetryInterval);
+                deviceVersion = Delcom.DelcomReadDeviceVersion(this.deviceHandle);
+                if (deviceVersion == 0 || deviceVersion == 255)
+                {
+                    return false;
+                }
             }
-
             return true;
         }
 
