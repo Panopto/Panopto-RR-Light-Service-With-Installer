@@ -88,7 +88,7 @@ namespace RRLightProgram
         /// </summary>
         public void Stop()
         {
-            if (this.inputProcessThread != null)
+            if (this.inputProcessThread == null)
             {
                 throw new ApplicationException("StateMachine.Stop() is called while not running.");
             }
