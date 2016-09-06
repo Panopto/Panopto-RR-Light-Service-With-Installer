@@ -85,6 +85,9 @@ namespace RRLightProgram
         /// </summary>
         public void Close()
         {
+            // Turn off the light first.
+            this.TurnOffAllLights();
+
             this.CloseDevice();
         }
 
