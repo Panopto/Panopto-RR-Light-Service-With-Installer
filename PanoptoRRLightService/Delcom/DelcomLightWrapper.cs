@@ -33,7 +33,7 @@ namespace RRLightProgram
         /// Assume all are on to begin with so that we can turn them off at initialization.
         /// This table itself is also used as a lock to protect from mutliple LED operations.
         /// </summary>
-        private Dictionary<DelcomLightColor, DelcomLightState> ligthStates = new Dictionary<DelcomLightColor, DelcomLightState>() {
+        private Dictionary<DelcomLightColor, DelcomLightState> lightStates = new Dictionary<DelcomLightColor, DelcomLightState>() {
             { DelcomLightColor.Green, DelcomLightState.On },
             { DelcomLightColor.Red, DelcomLightState.On },
             { DelcomLightColor.Blue, DelcomLightState.On } };
@@ -154,10 +154,10 @@ namespace RRLightProgram
         {
             bool result = false;
 
-            lock (this.ligthStates)
+            lock (this.lightStates)
             {
                 DelcomLightState currentState;
-                if (this.ligthStates.TryGetValue(color, out currentState) && currentState == newState)
+                if (this.lightStates.TryGetValue(color, out currentState) && currentState == newState)
                 {
                     // This color is already in appropriate state.
                     result = true;
@@ -168,7 +168,7 @@ namespace RRLightProgram
                     {
                         if (Delcom.DelcomLEDControl(this.deviceHandle, (byte)color, (byte)newState) == 0)
                         {
-                            this.ligthStates[color] = newState;
+                            this.lightStates[color] = newState;
                             result = true;
                             break;
                         }
@@ -186,6 +186,24 @@ namespace RRLightProgram
         }
 
         /// <summary>
+        /// Helper method to set the light value to the currently managed states upon reconnection.
+        /// This is inteneded after the reconnection and we do not make retry opertaion.
+        /// In the worst case, the light state becomes bad state, but next regular request will fix it.
+        /// </summary>
+        private bool ResyncLights()
+        {
+            bool result = true;
+            var colors = new List<DelcomLightColor>(this.lightStates.Keys);
+
+            foreach (var lightColorState in lightStates)
+            {
+                Delcom.DelcomLEDControl(this.deviceHandle, (byte)lightColorState.Key, (byte)lightColorState.Value);
+            }
+
+            return result;
+        }
+
+        /// <summary>
         /// Set the state of a specific color of light.
         /// Internally, this turns off the unspecified light.
         /// </summary>
@@ -197,7 +215,7 @@ namespace RRLightProgram
             }
 
             bool result = true;
-            var colors = new List<DelcomLightColor>(this.ligthStates.Keys);
+            var colors = new List<DelcomLightColor>(this.lightStates.Keys);
 
             foreach (DelcomLightColor targetColor in colors)
             {
@@ -220,7 +238,7 @@ namespace RRLightProgram
         public bool TurnOffAllLights()
         {
             bool result = true;
-            var colors = new List<DelcomLightColor>(this.ligthStates.Keys);
+            var colors = new List<DelcomLightColor>(this.lightStates.Keys);
 
             foreach (DelcomLightColor color in colors)
             {
@@ -283,8 +301,10 @@ namespace RRLightProgram
         /// <summary>
         /// Loop that attempts to reopen a device connection until one is connected.
         /// Block the caller until a device is opened.
-        /// Note that this assumes to reconnect to the same device and does not reset
-        /// or initialize the states which this class manages (button & LED).
+        /// After the reconnection;
+        /// 1. Light are synchronized to our internally managing states.
+        /// 2. Button state is not managed by this class. User class (DelcomLight) manages its state
+        ///    by polling and the latest state is expected to be picked up naturally by next poll.
         /// </summary>
         private void ReopenDevice()
         {
@@ -292,7 +312,10 @@ namespace RRLightProgram
             {
                 Trace.TraceWarning(@"Delcom light device is not connected. Will retry after {0}.", DelcomLightWrapper.DeviceRetryOpenInterval);
                 Thread.Sleep(DelcomLightWrapper.DeviceRetryOpenInterval);
-            }            
+            }
+
+            // Best effort. No error handling, and next regular request is expected to fix it.
+            ResyncLights();
         }
 
         #endregion Button state
