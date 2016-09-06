@@ -263,9 +263,17 @@ namespace RRLightProgram
                         serviceController.WaitForStatus(ServiceControllerStatus.Running, TimeSpan.FromSeconds(60.0));
                         break;
                     }
-                    catch (System.TimeoutException)
+                    catch (Exception e)
                     {
-                        Trace.TraceInformation("RemoteRecorderSync: Waiting for the recorder to start up.");
+                        // InvalidOperationException is not documented, but it is actually thrown immedately after the system boot.
+                        if (e is System.TimeoutException || e is InvalidOperationException)
+                        {
+                            Trace.TraceInformation("RemoteRecorderSync: Waiting for the recorder to start up.");
+                        }
+                        else
+                        {
+                            throw; // unhandled
+                        }
                     }
                 }
 
