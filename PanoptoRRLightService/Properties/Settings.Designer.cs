@@ -43,7 +43,7 @@ namespace RRLightProgram.Properties {
         
         [global::System.Configuration.ApplicationScopedSettingAttribute()]
         [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
-        [global::System.Configuration.DefaultSettingValueAttribute("00:00:03")]
+        [global::System.Configuration.DefaultSettingValueAttribute("00:00:05")]
         public global::System.TimeSpan DelcomButtonHoldThreshold {
             get {
                 return ((global::System.TimeSpan)(this["DelcomButtonHoldThreshold"]));
