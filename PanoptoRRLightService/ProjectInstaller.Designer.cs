@@ -40,9 +40,13 @@
             // 
             // ServiceInstaller
             // 
-            this.ServiceInstaller.Description = "Panopto RR light service";
-            this.ServiceInstaller.DisplayName = "PanoptoRRLightService";
+            this.ServiceInstaller.DelayedAutoStart = true;
+            this.ServiceInstaller.Description = "Service to control external light and button device for Panopto Remote Recorder";
+            this.ServiceInstaller.DisplayName = "Panopto RR Light Service";
             this.ServiceInstaller.ServiceName = "PanoptoRRLightService";
+            this.ServiceInstaller.ServicesDependedOn = new string[] {
+        "PanoptoRemoteRecorderService"};
+            this.ServiceInstaller.StartType = System.ServiceProcess.ServiceStartMode.Automatic;
             this.ServiceInstaller.AfterInstall += new System.Configuration.Install.InstallEventHandler(this.ServiceInstaller_AfterInstall);
             // 
             // ProjectInstaller

@@ -1,54 +1,101 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.Diagnostics;
-using System.Globalization;
-using System.Linq;
 using System.Net;
 using System.Security.Cryptography.X509Certificates;
 using System.ServiceProcess;
-using System.Threading;
 
 namespace RRLightProgram
 {
     public partial class RRLightService : ServiceBase
     {
-        private static bool SELF_SIGNED = true; // Target server is a self-signed server
-        private static bool initialized = false;
-        private static MainAppLogic mal;
-        private Thread MainThread;
+        /// <summary>
+        /// We accept the self signed server by overriding in ServerCertificateValidationCallback.
+        /// </summary>
+        private const bool SelfSignedServer = true;
+        
+        private static bool serverCertificateValidationCallbackIsSet = false;
 
+        private StateMachine stateMachine = null;
+
+        private RemoteRecorderSync remoteRecorderSync = null;
+
+        private DelcomLight delcomLight = null;
+
+        /// <summary>
+        /// Constrocutor.
+        /// </summary>
         public RRLightService()
         {
             InitializeComponent();
         }
 
         /// <summary>
-        ///     Manually run the service to support console debugging
+        /// Manually run the application for testing.
         /// </summary>
         public void ManualRun()
         {
             this.OnStart(null);
         }
 
+        /// <summary>
+        /// Start handler.
+        /// MSDN documentaion recommends not to rely on args in general.
+        /// We use config file for any parameters and ignore command line args.
+        /// </summary>
         protected override void OnStart(string[] args)
         {
-            if (SELF_SIGNED)
+            EnsureCertificateValidation();
+
+            ILightControl lightControl = null;
+
+            this.stateMachine = new StateMachine();
+
+            this.remoteRecorderSync = new RemoteRecorderSync((IStateMachine)this.stateMachine);
+
+            if (string.Compare(Properties.Settings.Default.DeviceType, "Delcom", StringComparison.OrdinalIgnoreCase) == 0)
             {
-                // For self-signed servers
-                EnsureCertificateValidation();
+                // Set up of Delcom light (with button) device.
+                this.delcomLight = new DelcomLight((IStateMachine)this.stateMachine);
+                lightControl = this.delcomLight as ILightControl;
+
+                if (!this.delcomLight.Start())
+                {
+                    Trace.TraceError("Failed to start up Delcom Light component. Terminate.");
+                    throw new ApplicationException("Failed to start up Delcom Light component. Terminate.");
+                }
+            }
+            // TODO: add here for device specific start up when another device type is added.
+            else
+            {
+                throw new InvalidOperationException("Specified device type is not supported: " + Properties.Settings.Default.DeviceType);
             }
 
-            // TODO: Parse args if necessary
-
-            mal = new MainAppLogic();
-            MainThread = new Thread(new ThreadStart(mal.Main));
-            MainThread.Start();
+            // Start processing of the state machine.
+            this.stateMachine.Start(this.remoteRecorderSync, lightControl);
         }
 
+        /// <summary>
+        /// Stop handler.
+        /// </summary>
         protected override void OnStop()
         {
-            mal.Stop();
-            MainThread.Abort();
+            if (this.remoteRecorderSync != null)
+            {
+                this.remoteRecorderSync.Stop();
+                this.remoteRecorderSync = null;
+            }
+
+            if (this.delcomLight != null)
+            {
+                this.delcomLight.Stop();
+                this.delcomLight = null;
+            }
+
+            if (this.stateMachine != null)
+            {
+                this.stateMachine.Stop();
+                this.stateMachine = null;
+            }
         }
 
         /// <summary>
@@ -56,10 +103,10 @@ namespace RRLightProgram
         /// </summary>
         public static void EnsureCertificateValidation()
         {
-            if (!initialized)
+            if (RRLightService.SelfSignedServer && !RRLightService.serverCertificateValidationCallbackIsSet)
             {
                 ServicePointManager.ServerCertificateValidationCallback += new System.Net.Security.RemoteCertificateValidationCallback(CustomCertificateValidation);
-                initialized = true;
+                serverCertificateValidationCallbackIsSet = true;
             }
         }
 
@@ -69,84 +116,6 @@ namespace RRLightProgram
         private static bool CustomCertificateValidation(object sender, X509Certificate cert, X509Chain chain, System.Net.Security.SslPolicyErrors error)
         {
             return true;
-        }
-    }
-
-    public class MainAppLogic
-    {
-        //Boolean used for stopping thread loop
-        private bool shouldStop = false;
-
-        //Initialize queue for events to input into statemachine
-        private Queue<StateMachine.StateMachineInputArgs> stateMachineInputQueue = new Queue<StateMachine.StateMachineInputArgs>();
-
-        //Initialize threshold for button hold from settings to pass into light.
-
-
-        // Delegate for the light and the RR to callback to add statemachine input to the queue (in a threadsafe manner)
-        public delegate void EnqueueStateMachineInput(StateMachine.StateMachineInputArgs input);
-
-        /// <summary>
-        ///     Program main loop
-        /// </summary>
-        public void Main()
-        {
-            //Create new DelcomLight object and start it's thread to listen for input from the button
-            DelcomLight dLight = new DelcomLight(new EnqueueStateMachineInput(this.AddInputToStateMachineQueue),
-                                       RRLightProgram.Properties.Settings.Default.HoldDuration);
-
-            //Create new remote recorder sync object to poll recorder state and input changes into state machine
-            RemoteRecorderSync rSync = new RemoteRecorderSync(new EnqueueStateMachineInput(this.AddInputToStateMachineQueue));
-
-            //Initialize state machine. Pass in Light and RemoteRecorder
-            StateMachine sm = new StateMachine(dLight, rSync);
-
-            // Main thread loop
-            // Loop endlessly until we're asked to stop
-            while (!this.shouldStop)
-            {
-                StateMachine.StateMachineInputArgs argsToProcess = null;
-
-                // lock only while we're inspecting and changing the queue
-                lock (stateMachineInputQueue)
-                {
-                    // if the queue has anything, then work on it
-                    if (stateMachineInputQueue.Any())
-                    {
-                        // dequeue
-                        argsToProcess = stateMachineInputQueue.Dequeue();
-                    }
-                }
-
-                if (argsToProcess != null)
-                {
-                    // send the input to the state machine
-                    sm.ProcessStateMachineInput(argsToProcess);
-                }
-                else
-                {
-                    // else sleep
-                    Thread.Sleep(50);
-                }
-            }
-        }
-
-        private void AddInputToStateMachineQueue(StateMachine.StateMachineInputArgs input)
-        {
-            if (Program.RunFromConsole) // Verbose trace output only for console mode.
-            {
-                Trace.TraceInformation("Detected input: {0}", input.Input);
-            }
-
-            lock (stateMachineInputQueue)
-            {
-                stateMachineInputQueue.Enqueue(input);
-            }
-        }
-
-        public void Stop()
-        {
-            shouldStop = true;
         }
     }
 }
