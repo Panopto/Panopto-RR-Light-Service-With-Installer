@@ -109,5 +109,10 @@ namespace RRLightProgram
         /// Resume recording.
         /// </summary>
         CommandResume,
+
+        /// <summary>
+        /// Extend recording.
+        /// </summary>
+        CommandExtend,
     }
 }

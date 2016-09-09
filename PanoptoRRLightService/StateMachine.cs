@@ -316,6 +316,30 @@ namespace RRLightProgram
         }
 
         /// <summary>
+        /// Request to extend recording. Light is not changed.
+        /// </summary>
+        private bool ActionRequestExtend(Input input)
+        {
+            State currentState = this.state;
+            bool requestResult = this.remoteRecorder.ExtendCurrentRecording();
+            if (!requestResult)
+            {
+                Trace.TraceWarning("Failed to extend the recording. Flash red for 2 seconds and change light back to original state.");
+                this.light.SetFlash(LightColor.Red);
+                Thread.Sleep(2000);
+                if (currentState == State.Paused)
+                {
+                    this.light.SetSolid(LightColor.Yellow);
+                }
+                else
+                {
+                    this.light.SetSolid(LightColor.Green);
+                }
+            }
+            return requestResult;
+        }
+
+        /// <summary>
         /// Turn off the light.
         /// </summary>
         private bool ActionRespondStopped(Input input)
@@ -514,6 +538,7 @@ namespace RRLightProgram
             this.transitionTable.Add(new Condition(State.Recording, Input.ButtonHeld), new Transition(this.ActionRequestStop, State.TransitionRecordingToStop));
             this.transitionTable.Add(new Condition(State.Recording, Input.CommandStop), new Transition(this.ActionRequestStop, State.TransitionRecordingToStop));
             this.transitionTable.Add(new Condition(State.Recording, Input.CommandPause), new Transition(this.ActionRequestPause, State.TransitionRecordingToPause));
+            this.transitionTable.Add(new Condition(State.Recording, Input.CommandExtend), new Transition(this.ActionRequestExtend, State.Recording));
 
             this.transitionTable.Add(new Condition(State.TransitionRecordingToPause, Input.RecorderPreviewingNoNextSchedule), new Transition(this.ActionRespondPreviewing, State.PreviewingNoNextSchedule));
             this.transitionTable.Add(new Condition(State.TransitionRecordingToPause, Input.RecorderPreviewingWithNextSchedule), new Transition(this.ActionRespondPreviewing, State.PreviewingWithNextSchedule));
@@ -535,6 +560,7 @@ namespace RRLightProgram
             this.transitionTable.Add(new Condition(State.Paused, Input.ButtonHeld), new Transition(this.ActionRequestStop, State.TransitionPausedToStop));
             this.transitionTable.Add(new Condition(State.Paused, Input.CommandStop), new Transition(this.ActionRequestStop, State.TransitionPausedToStop));
             this.transitionTable.Add(new Condition(State.Paused, Input.CommandResume), new Transition(this.ActionRequestResume, State.TransitionAnyToRecording));
+            this.transitionTable.Add(new Condition(State.Paused, Input.CommandExtend), new Transition(this.ActionRequestExtend, State.Paused));
 
             this.transitionTable.Add(new Condition(State.TransitionPausedToStop, Input.RecorderPreviewingNoNextSchedule), new Transition(this.ActionRespondPreviewing, State.PreviewingNoNextSchedule));
             this.transitionTable.Add(new Condition(State.TransitionPausedToStop, Input.RecorderPreviewingWithNextSchedule), new Transition(this.ActionRespondPreviewing, State.PreviewingWithNextSchedule));

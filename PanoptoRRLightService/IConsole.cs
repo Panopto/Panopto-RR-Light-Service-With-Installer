@@ -24,5 +24,6 @@ namespace RRLightProgram
         Stop,
         Pause,
         Resume,
+        Extend,
     }
 }

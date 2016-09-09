@@ -244,6 +244,37 @@ namespace RRLightProgram
             return result;
         }
 
+        /// <summary>
+        /// Extend the current recording
+        /// </summary>
+        /// <returns>true on success</returns>
+        public bool ExtendCurrentRecording()
+        {
+            bool result = false;
+
+            try
+            {
+                RemoteRecorderState state = this.controller.GetCurrentState();
+                if (state.CurrentRecording != null)
+                {
+                    if (state.Status != RemoteRecorderStatus.Stopped)
+                    {
+                        result = this.controller.ExtendCurrentRecording(state.CurrentRecording.Id);
+                        if (!result)
+                        {
+                            Trace.TraceWarning("ExtendCurrentRecording failed.");
+                        }
+                    }
+                }
+            }
+            catch (Exception e)
+            {
+                this.HandleRRException(e, false);
+            }
+
+            return result;
+        }
+
         #endregion Public methods to take action against Remote Recorder
 
         #region Helper methods
