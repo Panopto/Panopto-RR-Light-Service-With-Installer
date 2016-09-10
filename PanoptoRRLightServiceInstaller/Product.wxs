@@ -1,6 +1,10 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <Wix xmlns="http://schemas.microsoft.com/wix/2006/wi">
+<<<<<<< HEAD
   <Product Id="*" Name="Panopto RR Light Service" Language="1033" Version="2.0.0.0" Manufacturer="Panopto" UpgradeCode="48dc066c-97cc-4512-8fa3-52bbe195e075">
+=======
+  <Product Id="*" Name="Panopto RR Light Service" Language="1033" Version="2.0.1.0" Manufacturer="Panopto" UpgradeCode="48dc066c-97cc-4512-8fa3-52bbe195e075">
+>>>>>>> b5a428187f58d67d9e752757b7e186e24482e49e
     <Package InstallerVersion="200" Compressed="yes" InstallScope="perMachine" />
 
     <!-- AllowSameVersionUpgrades is desired for development iteration. This causes ICE61 warning, but it may be ignored. -->
