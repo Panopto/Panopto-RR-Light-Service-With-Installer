@@ -149,6 +149,11 @@ namespace RRLightProgram
 
         /// <summary>
         /// Internal method to set a single color of light.
+        /// We optimized this code to call API only if the current state is different from requested state.
+        /// However, we heard a case that a color was turned on oustide of our control (supposing firmware or
+        /// driver layer issue) and that statys forever until reboot.
+        /// Current code sets the requested state regardless of the current state.
+        /// This oepration is expected to clear out any bad state at each update.
         /// </summary>
         private bool SetSingleLight(DelcomLightColor color, DelcomLightState newState)
         {
@@ -156,28 +161,19 @@ namespace RRLightProgram
 
             lock (this.lightStates)
             {
-                DelcomLightState currentState;
-                if (this.lightStates.TryGetValue(color, out currentState) && currentState == newState)
+                for (int i = 0; i < DelcomLightWrapper.MaxLightRetries; i++)
                 {
-                    // This color is already in appropriate state.
-                    result = true;
-                }
-                else
-                {
-                    for (int i = 0; i < DelcomLightWrapper.MaxLightRetries; i++)
+                    if (Delcom.DelcomLEDControl(this.deviceHandle, (byte)color, (byte)newState) == 0)
                     {
-                        if (Delcom.DelcomLEDControl(this.deviceHandle, (byte)color, (byte)newState) == 0)
-                        {
-                            this.lightStates[color] = newState;
-                            result = true;
-                            break;
-                        }
-                        else
-                        {
-                            // Not to log each failure because a) API does not provide any error detail and
-                            // b) caller will make an error log if all retries fail.
-                            System.Threading.Thread.Sleep(DelcomLightWrapper.LightRetryInterval);
-                        }
+                        this.lightStates[color] = newState;
+                        result = true;
+                        break;
+                    }
+                    else
+                    {
+                        // Not to log each failure because a) API does not provide any error detail and
+                        // b) caller will make an error log if all retries fail.
+                        System.Threading.Thread.Sleep(DelcomLightWrapper.LightRetryInterval);
                     }
                 }
             }

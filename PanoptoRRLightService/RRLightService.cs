@@ -60,17 +60,12 @@ namespace RRLightProgram
 
                 if (!this.delcomLight.Start())
                 {
-<<<<<<< HEAD
-                    Trace.TraceError("Failed to start up Delcom Light component. Terminate.");
-                    throw new ApplicationException("Failed to start up Delcom Light component. Terminate.");
-=======
                     // It is desired to block starting the service, but that prevents the installer completes
                     // when the device is not installed. (vital=yes causes failure, vital=no becomes hung.)
                     // As a workaround, service continues to start, but with error log message.
                     Trace.TraceError("Failed to start up Delcom Light component. Service continues to run, but the device is not recognized without restart of the service.");
                     lightControl = null;
                     this.delcomLight = null;
->>>>>>> b5a428187f58d67d9e752757b7e186e24482e49e
                 }
             }
             // TODO: add here for device specific start up when another device type is added.
