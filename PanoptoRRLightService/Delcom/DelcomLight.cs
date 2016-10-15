@@ -358,6 +358,8 @@ namespace RRLightProgram
                         if (!buttonHeld)
                         {
                             // If hold duration is greater than threshold we should fire a button held event
+                            // Note that due to asynchronous operation and intentional recognition delay (ButtonRecognitionThreshold),
+                            // actual hold threshold may be longer than exactly specified duration here.
                             if (holdDuration > Properties.Settings.Default.DelcomButtonHoldThreshold)
                             {
                                 this.stateMachine.PostInput(Input.ButtonHeld);
