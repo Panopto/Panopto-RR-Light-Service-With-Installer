@@ -93,6 +93,9 @@
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="StateMachine.cs" />
+    <Compile Include="TcpComm.cs" />
+    <Compile Include="TCP\TcpServer.cs" />
+    <Compile Include="TCP\TcpServerConnection.cs" />
     <Compile Include="TraceVerbose.cs" />
   </ItemGroup>
   <ItemGroup>

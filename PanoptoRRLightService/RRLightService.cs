@@ -21,6 +21,8 @@ namespace RRLightProgram
 
         private DelcomLight delcomLight = null;
 
+        private TcpComm tcpComm = null;
+
         /// <summary>
         /// Constrocutor.
         /// </summary>
@@ -52,6 +54,8 @@ namespace RRLightProgram
 
             this.remoteRecorderSync = new RemoteRecorderSync((IStateMachine)this.stateMachine);
 
+            this.tcpComm = new TcpComm((IStateMachine)this.stateMachine);
+
             if (string.Compare(Properties.Settings.Default.DeviceType, "Delcom", StringComparison.OrdinalIgnoreCase) == 0)
             {
                 // Set up of Delcom light (with button) device.
@@ -75,7 +79,7 @@ namespace RRLightProgram
             }
 
             // Start processing of the state machine.
-            this.stateMachine.Start(this.remoteRecorderSync, lightControl);
+            this.stateMachine.Start(this.remoteRecorderSync, lightControl, tcpComm);
         }
 
         /// <summary>
@@ -99,6 +103,12 @@ namespace RRLightProgram
             {
                 this.stateMachine.Stop();
                 this.stateMachine = null;
+            }
+
+            if (this.tcpComm != null)
+            {
+                this.tcpComm.Stop();
+                this.tcpComm = null;
             }
         }
 
