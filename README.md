@@ -1,6 +1,8 @@
 # Panopto-RR-Light-Service-With-Installer
 Panopto Remote Recorder Light Button Service, including a TCP server for remote control.
 
+This is a **BETA** version.
+
 ## TCP Server
 
 This version incorporates a TCP server written by [Craig Baird on Codeproject] (http://www.codeproject.com/Articles/488668/Csharp-TCP-Server).
@@ -27,7 +29,7 @@ STOP    | Stop the current recording
 PAUSE   | Pause the current recording
 RESUME  | Resume the current (paused) recording
 
-Commands should be terminated with \n\r
+Commands should be terminated with `\n\r`
 
 ## Responses
 
@@ -50,6 +52,9 @@ Disconnected               | Disconnected, or not found
 ## Warning
 
 This TCP server has no authentication mechanism and it is advised that a firewall rule be created to allow only permitted clients to connect to it.
+
+## Notes
+* The TCP server can handle multiple clients, though this has not been load tested.
 
 ## Todo
 * Reimplement detail status as per UW implementation.
