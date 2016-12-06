@@ -89,5 +89,13 @@ namespace RRLightProgram
         /// The button is pressed released, regardless it's 'pressed' or 'held'.
         /// </summary>
         ButtonUp,
+
+        /// <summary>
+        /// Commands received via the TCP Server interface.
+        /// </summary>
+        CommandStart,
+        CommandStop,
+        CommandPause,
+        CommandResume,
     }
 }

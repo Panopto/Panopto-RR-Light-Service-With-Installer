@@ -20,5 +20,11 @@
     <Setting Name="DeviceType" Type="System.String" Scope="Application">
       <Value Profile="(Default)">Delcom</Value>
     </Setting>
+    <Setting Name="TcpServer" Type="System.Boolean" Scope="Application">
+      <Value Profile="(Default)">True</Value>
+    </Setting>
+    <Setting Name="TcpServerPort" Type="System.Int32" Scope="Application">
+      <Value Profile="(Default)">3000</Value>
+    </Setting>
   </Settings>
 </SettingsFile>

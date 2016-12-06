@@ -47,6 +47,11 @@ namespace RRLightProgram
         /// </summary>
         private ILightControl light;
 
+        /// <summary>
+        /// The controller for the TCP Server
+        /// </summary>
+        private TcpComm tcp;
+
         #endregion Variables
 
         #region Initialization and cleanup
@@ -60,11 +65,12 @@ namespace RRLightProgram
         }
 
         /// <summary>
-        /// Set ILightControl interface, RemoteRecoderSync, and start processing thread.
+        /// Set ILightControl interface, RemoteRecoderSync, TCP Server, and start processing thread.
         /// </summary>
         /// <param name="remoteRecorder">Remote recorder controller. Cannot be null.</param>
         /// <param name="lightControl">Light control interface. May be null.</param>
-        public void Start(RemoteRecorderSync remoteRecorder, ILightControl lightControl)
+        /// <param name="tcp">TCP Server interface. May be null.</param>
+        public void Start(RemoteRecorderSync remoteRecorder, ILightControl lightControl, TcpComm tcp)
         {
             if (remoteRecorder == null)
             {
@@ -76,6 +82,7 @@ namespace RRLightProgram
             }
 
             this.remoteRecorder = remoteRecorder;
+            this.tcp = tcp;
             this.light = lightControl ?? new EmptyLightControl();
 
             this.inputProcessThread = new Thread(this.InputProcessLoop);
@@ -165,10 +172,12 @@ namespace RRLightProgram
                     if (transition.ActionMethod(input))
                     {
                         this.state = transition.NextState;
+                        this.tcp.TcpSend(this.state.ToString() + " OK");
                     }
                     else
                     {
                         Trace.TraceError("{0} failed. State stays at {1}", transition.ActionMethod.Method.Name, this.state);
+                        this.tcp.TcpSend(transition.NextState.ToString() + " ERROR");
                     }
                 }
                 else
@@ -452,6 +461,8 @@ namespace RRLightProgram
             }
             this.transitionTable = new Dictionary<Condition, Transition>();
 
+            // Initialisation state - no input from button or tcp server
+
             this.transitionTable.Add(new Condition(State.Init, Input.RecorderPreviewingNoNextSchedule), new Transition(this.ActionRespondPreviewing, State.PreviewingNoNextSchedule));
             this.transitionTable.Add(new Condition(State.Init, Input.RecorderPreviewingWithNextSchedule), new Transition(this.ActionRespondPreviewing, State.PreviewingWithNextSchedule));
             this.transitionTable.Add(new Condition(State.Init, Input.RecorderRecording), new Transition(this.ActionRespondRecording, State.Recording));
@@ -460,6 +471,9 @@ namespace RRLightProgram
             this.transitionTable.Add(new Condition(State.Init, Input.RecorderDormant), new Transition(this.ActionRespondDormant, State.Dormant));
             this.transitionTable.Add(new Condition(State.Init, Input.RecorderFaulted), new Transition(this.ActionRespondFaultedOrDisconnected, State.Faulted));
             this.transitionTable.Add(new Condition(State.Init, Input.RecorderDisconnected), new Transition(this.ActionRespondFaultedOrDisconnected, State.Disconnected));
+
+
+            // Previewing with no next schedule
 
             this.transitionTable.Add(new Condition(State.PreviewingNoNextSchedule, Input.RecorderPreviewingWithNextSchedule), new Transition(this.ActionNone, State.PreviewingWithNextSchedule));
             this.transitionTable.Add(new Condition(State.PreviewingNoNextSchedule, Input.RecorderRecording), new Transition(this.ActionRespondRecording, State.Recording));
@@ -472,6 +486,15 @@ namespace RRLightProgram
             this.transitionTable.Add(new Condition(State.PreviewingNoNextSchedule, Input.ButtonDown), new Transition(this.ActionRespondButtonDownInPreviewinging, State.PreviewingNoNextSchedule));
             this.transitionTable.Add(new Condition(State.PreviewingNoNextSchedule, Input.ButtonUp), new Transition(this.ActionRespondButtonUpInPreviewinging, State.PreviewingNoNextSchedule));
 
+            // Commands from TCP interface - CommandStart will trigger an adhoc recording
+
+            this.transitionTable.Add(new Condition(State.PreviewingNoNextSchedule, Input.CommandStart), new Transition(this.ActionRequestNewRecording, State.TransitionAnyToRecording));
+            this.transitionTable.Add(new Condition(State.PreviewingNoNextSchedule, Input.CommandStop), new Transition(this.ActionNone, State.PreviewingNoNextSchedule));
+            this.transitionTable.Add(new Condition(State.PreviewingNoNextSchedule, Input.CommandPause), new Transition(this.ActionNone, State.PreviewingNoNextSchedule));
+            this.transitionTable.Add(new Condition(State.PreviewingNoNextSchedule, Input.CommandResume), new Transition(this.ActionNone, State.PreviewingNoNextSchedule));
+
+            // Previewing with an awaiting schedule
+
             this.transitionTable.Add(new Condition(State.PreviewingWithNextSchedule, Input.RecorderRecording), new Transition(this.ActionRespondRecording, State.Recording));
             this.transitionTable.Add(new Condition(State.PreviewingWithNextSchedule, Input.RecorderPaused), new Transition(this.ActionRespondPaused, State.Paused));
             this.transitionTable.Add(new Condition(State.PreviewingWithNextSchedule, Input.RecorderStopped), new Transition(this.ActionRespondStopped, State.Stopped));
@@ -481,6 +504,15 @@ namespace RRLightProgram
             this.transitionTable.Add(new Condition(State.PreviewingWithNextSchedule, Input.ButtonPressed), new Transition(this.ActionRequestNextRecording, State.TransitionAnyToRecording));
             this.transitionTable.Add(new Condition(State.PreviewingWithNextSchedule, Input.ButtonHeld), new Transition(this.ActionRequestNextRecording, State.TransitionAnyToRecording));
 
+            // Commands from TCP interface - CommandStart will trigger the next recording
+
+            this.transitionTable.Add(new Condition(State.PreviewingWithNextSchedule, Input.CommandStart), new Transition(this.ActionRequestNextRecording, State.TransitionAnyToRecording));
+            this.transitionTable.Add(new Condition(State.PreviewingWithNextSchedule, Input.CommandStop), new Transition(this.ActionNone, State.PreviewingWithNextSchedule));
+            this.transitionTable.Add(new Condition(State.PreviewingWithNextSchedule, Input.CommandPause), new Transition(this.ActionNone, State.PreviewingWithNextSchedule));
+            this.transitionTable.Add(new Condition(State.PreviewingWithNextSchedule, Input.CommandResume), new Transition(this.ActionNone, State.PreviewingWithNextSchedule));
+
+            // Transition state - no input from button or tcp server
+
             this.transitionTable.Add(new Condition(State.TransitionAnyToRecording, Input.RecorderPreviewingNoNextSchedule), new Transition(this.ActionRespondPreviewing, State.PreviewingNoNextSchedule));
             this.transitionTable.Add(new Condition(State.TransitionAnyToRecording, Input.RecorderPreviewingWithNextSchedule), new Transition(this.ActionRespondPreviewing, State.PreviewingWithNextSchedule));
             this.transitionTable.Add(new Condition(State.TransitionAnyToRecording, Input.RecorderRecording), new Transition(this.ActionRespondRecording, State.Recording));
@@ -489,6 +521,8 @@ namespace RRLightProgram
             this.transitionTable.Add(new Condition(State.TransitionAnyToRecording, Input.RecorderDormant), new Transition(this.ActionRespondDormant, State.Dormant));
             this.transitionTable.Add(new Condition(State.TransitionAnyToRecording, Input.RecorderFaulted), new Transition(this.ActionRespondFaultedOrDisconnected, State.Faulted));
             this.transitionTable.Add(new Condition(State.TransitionAnyToRecording, Input.RecorderDisconnected), new Transition(this.ActionRespondFaultedOrDisconnected, State.Disconnected));
+
+            // Recording
 
             this.transitionTable.Add(new Condition(State.Recording, Input.RecorderPreviewingNoNextSchedule), new Transition(this.ActionRespondPreviewing, State.PreviewingNoNextSchedule));
             this.transitionTable.Add(new Condition(State.Recording, Input.RecorderPreviewingWithNextSchedule), new Transition(this.ActionRespondPreviewing, State.PreviewingWithNextSchedule));
@@ -500,6 +534,15 @@ namespace RRLightProgram
             this.transitionTable.Add(new Condition(State.Recording, Input.ButtonPressed), new Transition(this.ActionRequestPause, State.TransitionRecordingToPause));
             this.transitionTable.Add(new Condition(State.Recording, Input.ButtonHeld), new Transition(this.ActionRequestStop, State.TransitionRecordingToStop));
 
+            // Commands from TCP interface - CommandStop and CommandPause will initiate stop and pause respectively
+
+            this.transitionTable.Add(new Condition(State.Recording, Input.CommandStart), new Transition(this.ActionNone, State.Recording));
+            this.transitionTable.Add(new Condition(State.Recording, Input.CommandStop), new Transition(this.ActionRequestStop, State.TransitionRecordingToStop));
+            this.transitionTable.Add(new Condition(State.Recording, Input.CommandPause), new Transition(this.ActionRequestPause, State.TransitionRecordingToPause));
+            this.transitionTable.Add(new Condition(State.Recording, Input.CommandResume), new Transition(this.ActionNone, State.Recording));
+
+            // Transition state - no input from button or tcp server
+
             this.transitionTable.Add(new Condition(State.TransitionRecordingToPause, Input.RecorderPreviewingNoNextSchedule), new Transition(this.ActionRespondPreviewing, State.PreviewingNoNextSchedule));
             this.transitionTable.Add(new Condition(State.TransitionRecordingToPause, Input.RecorderPreviewingWithNextSchedule), new Transition(this.ActionRespondPreviewing, State.PreviewingWithNextSchedule));
             this.transitionTable.Add(new Condition(State.TransitionRecordingToPause, Input.RecorderRecording), new Transition(this.ActionRespondRecording, State.Recording));
@@ -508,6 +551,8 @@ namespace RRLightProgram
             this.transitionTable.Add(new Condition(State.TransitionRecordingToPause, Input.RecorderDormant), new Transition(this.ActionRespondDormant, State.Dormant));
             this.transitionTable.Add(new Condition(State.TransitionRecordingToPause, Input.RecorderFaulted), new Transition(this.ActionRespondFaultedOrDisconnected, State.Faulted));
             this.transitionTable.Add(new Condition(State.TransitionRecordingToPause, Input.RecorderDisconnected), new Transition(this.ActionRespondFaultedOrDisconnected, State.Disconnected));
+
+            // Paused
 
             this.transitionTable.Add(new Condition(State.Paused, Input.RecorderPreviewingNoNextSchedule), new Transition(this.ActionRespondPreviewing, State.PreviewingNoNextSchedule));
             this.transitionTable.Add(new Condition(State.Paused, Input.RecorderPreviewingWithNextSchedule), new Transition(this.ActionRespondPreviewing, State.PreviewingWithNextSchedule));
@@ -519,6 +564,15 @@ namespace RRLightProgram
             this.transitionTable.Add(new Condition(State.Paused, Input.ButtonPressed), new Transition(this.ActionRequestResume, State.TransitionAnyToRecording));
             this.transitionTable.Add(new Condition(State.Paused, Input.ButtonHeld), new Transition(this.ActionRequestStop, State.TransitionPausedToStop));
 
+            // Commands from TCP interface - CommandStop and CommandResume will initiate stop and resume respectively
+
+            this.transitionTable.Add(new Condition(State.Paused, Input.CommandStart), new Transition(this.ActionNone, State.Recording));
+            this.transitionTable.Add(new Condition(State.Paused, Input.CommandStop), new Transition(this.ActionRequestStop, State.TransitionRecordingToStop));
+            this.transitionTable.Add(new Condition(State.Paused, Input.CommandPause), new Transition(this.ActionNone, State.Paused));
+            this.transitionTable.Add(new Condition(State.Paused, Input.CommandResume), new Transition(this.ActionRequestResume, State.TransitionAnyToRecording));
+
+            // Transition state - no input from button or tcp server
+
             this.transitionTable.Add(new Condition(State.TransitionPausedToStop, Input.RecorderPreviewingNoNextSchedule), new Transition(this.ActionRespondPreviewing, State.PreviewingNoNextSchedule));
             this.transitionTable.Add(new Condition(State.TransitionPausedToStop, Input.RecorderPreviewingWithNextSchedule), new Transition(this.ActionRespondPreviewing, State.PreviewingWithNextSchedule));
             this.transitionTable.Add(new Condition(State.TransitionPausedToStop, Input.RecorderRecording), new Transition(this.ActionRespondRecording, State.Recording));
@@ -528,6 +582,8 @@ namespace RRLightProgram
             this.transitionTable.Add(new Condition(State.TransitionPausedToStop, Input.RecorderFaulted), new Transition(this.ActionRespondFaultedOrDisconnected, State.Faulted));
             this.transitionTable.Add(new Condition(State.TransitionPausedToStop, Input.RecorderDisconnected), new Transition(this.ActionRespondFaultedOrDisconnected, State.Disconnected));
 
+            // Transition state - no input from button or tcp server
+
             this.transitionTable.Add(new Condition(State.TransitionRecordingToStop, Input.RecorderPreviewingNoNextSchedule), new Transition(this.ActionRespondPreviewing, State.PreviewingNoNextSchedule));
             this.transitionTable.Add(new Condition(State.TransitionRecordingToStop, Input.RecorderPreviewingWithNextSchedule), new Transition(this.ActionRespondPreviewing, State.PreviewingWithNextSchedule));
             this.transitionTable.Add(new Condition(State.TransitionRecordingToStop, Input.RecorderRecording), new Transition(this.ActionRespondRecording, State.Recording));
@@ -536,6 +592,8 @@ namespace RRLightProgram
             this.transitionTable.Add(new Condition(State.TransitionRecordingToStop, Input.RecorderDormant), new Transition(this.ActionRespondDormant, State.Dormant));
             this.transitionTable.Add(new Condition(State.TransitionRecordingToStop, Input.RecorderFaulted), new Transition(this.ActionRespondFaultedOrDisconnected, State.Faulted));
             this.transitionTable.Add(new Condition(State.TransitionRecordingToStop, Input.RecorderDisconnected), new Transition(this.ActionRespondFaultedOrDisconnected, State.Disconnected));
+
+            // Transition state - no input from button or tcp server - stop transitions to a previewing state when ready
 
             this.transitionTable.Add(new Condition(State.Stopped, Input.RecorderPreviewingNoNextSchedule), new Transition(this.ActionRespondPreviewing, State.PreviewingNoNextSchedule));
             this.transitionTable.Add(new Condition(State.Stopped, Input.RecorderPreviewingWithNextSchedule), new Transition(this.ActionRespondPreviewing, State.PreviewingWithNextSchedule));
