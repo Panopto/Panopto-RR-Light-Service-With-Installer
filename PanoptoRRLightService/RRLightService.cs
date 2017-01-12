@@ -83,7 +83,7 @@ namespace RRLightProgram
                 this.serialComm = new SerialComm((IStateMachine)this.stateMachine);
                 console = this.serialComm as IConsole;
 
-                if (!this.serialComm.Start())
+                if (!this.serialComm.Start(this.remoteRecorderSync))
                 {
                     Trace.TraceError("Failed to start up Serial component. Terminate.");
                     throw new ApplicationException("Failed to start up Serial component. Terminate.");

@@ -18,6 +18,12 @@ namespace RRLightProgram
         /// </summary>
         private IStateMachine stateMachine;
 
+        /// <summary>
+        /// Controller of the remote recorder.
+        /// This is used to get recording info from the remote controller.
+        /// </summary>
+        private RemoteRecorderSync remoteRecorder;
+
         #endregion
 
         #region Constructor, Initialize, and Cleanup
@@ -40,8 +46,15 @@ namespace RRLightProgram
         /// Initialize the device and start background threads.
         /// </summary>
         /// <returns>true on success, false on failure.</returns>
-        public bool Start()
+        public bool Start(RemoteRecorderSync remoteRecorder)
         {
+            if (remoteRecorder == null)
+            {
+                throw new ArgumentException("remoteRecorder cannot be null.");
+            }
+
+            this.remoteRecorder = remoteRecorder;
+
             try
             {
                 portObj = new SerialPort(
@@ -116,6 +129,10 @@ namespace RRLightProgram
                     {
                         this.stateMachine.PostInput(inputSMInput);
                     }
+                    else if (inputCommand == Command.Status)
+                    {
+                        this.OutputStatus(inputString);
+                    }
                     else
                     {
                         Trace.TraceError(DateTime.Now + ": Serial: Unhandled command '{0}'", inputString);
@@ -131,5 +148,37 @@ namespace RRLightProgram
         }
 
         #endregion
+
+        private void OutputStatus(string inputCommand)
+        {
+            var currentRecording = this.remoteRecorder.GetCurrentRecording();
+            var nextRecording = this.remoteRecorder.GetNextRecording();
+
+            this.Output("Recorder-Status: " + this.stateMachine.GetCurrentState());
+
+            if (currentRecording != null)
+            {
+                this.Output("CurrentRecording-Id: " + currentRecording.Id);
+                this.Output("CurrentRecording-Name: " + currentRecording.Name);
+                this.Output("CurrentRecording-StartTime: " + currentRecording.StartTime.ToLocalTime());
+                this.Output("CurrentRecording-EndTime: " + currentRecording.EndTime.ToLocalTime());
+                this.Output("CurrentRecording-MinutesUntilStartTime: " +
+                    (int)(currentRecording.StartTime.ToLocalTime() - DateTime.Now.ToLocalTime()).TotalMinutes);
+                this.Output("CurrentRecording-MinutesUntilEndTime: " +
+                    (int)(currentRecording.EndTime.ToLocalTime() - DateTime.Now.ToLocalTime()).TotalMinutes);
+            }
+            if (nextRecording != null)
+            {
+                this.Output("NextRecording-Id: " + nextRecording.Id);
+                this.Output("NextRecording-Name: " + nextRecording.Name);
+                this.Output("NextRecording-StartTime: " + nextRecording.StartTime.ToLocalTime());
+                this.Output("NextRecording-EndTime: " + nextRecording.EndTime.ToLocalTime());
+                this.Output("NextRecording-MinutesUntilStartTime: " +
+                    (int)(nextRecording.StartTime.ToLocalTime() - DateTime.Now.ToLocalTime()).TotalMinutes);
+                this.Output("NextRecording-MinutesUntilEndTime: " +
+                    (int)(nextRecording.EndTime.ToLocalTime() - DateTime.Now.ToLocalTime()).TotalMinutes);
+            }
+        }
+
     }
 }

@@ -275,6 +275,46 @@ namespace RRLightProgram
             return result;
         }
 
+        /// <summary>
+        /// Get current recording data
+        /// </summary>
+        /// <returns>Recording object</returns>
+        public Recording GetCurrentRecording()
+        {
+            Recording recordingData = null;
+            try
+            {
+                recordingData = this.controller.GetCurrentState().CurrentRecording;
+
+            }
+            catch (Exception e)
+            {
+                this.HandleRRException(e, false);
+            }
+
+            return recordingData;
+        }
+
+        /// <summary>
+        /// Get next recording data
+        /// </summary>
+        /// <returns>Recording object</returns>
+        public Recording GetNextRecording()
+        {
+            Recording recordingData = null;
+            try
+            {
+                recordingData = this.controller.GetNextRecording();
+
+            }
+            catch (Exception e)
+            {
+                this.HandleRRException(e, false);
+            }
+
+            return recordingData;
+        }
+
         #endregion Public methods to take action against Remote Recorder
 
         #region Helper methods
