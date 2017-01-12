@@ -111,6 +111,12 @@ namespace RRLightProgram
                 this.delcomLight = null;
             }
 
+            if (this.serialComm != null)
+            {
+                this.serialComm.Stop();
+                this.serialComm = null;
+            }
+
             if (this.stateMachine != null)
             {
                 this.stateMachine.Stop();
