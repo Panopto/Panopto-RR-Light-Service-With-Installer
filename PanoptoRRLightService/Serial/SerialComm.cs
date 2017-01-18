@@ -122,21 +122,30 @@ namespace RRLightProgram
                 //Fire the command event.
                 if (Enum.TryParse(inputString, true, out inputCommand))
                 {
-                    Input inputSMInput;
-
-                    // State machine input?
-                    if (Enum.TryParse("Command" + inputString, true, out inputSMInput))
+                    switch (inputCommand)
                     {
-                        this.stateMachine.PostInput(inputSMInput);
-                    }
-                    else if (inputCommand == Command.Status)
-                    {
-                        this.OutputStatus(inputString);
-                    }
-                    else
-                    {
-                        Trace.TraceError(DateTime.Now + ": Serial: Unhandled command '{0}'", inputString);
-                        this.Output("Error: Unhandled console command: " + inputString);
+                        case Command.Start:
+                            this.stateMachine.PostInput(Input.CommandStart);
+                            break;
+                        case Command.Stop:
+                            this.stateMachine.PostInput(Input.CommandStop);
+                            break;
+                        case Command.Pause:
+                            this.stateMachine.PostInput(Input.CommandPause);
+                            break;
+                        case Command.Resume:
+                            this.stateMachine.PostInput(Input.CommandResume);
+                            break;
+                        case Command.Extend:
+                            this.stateMachine.PostInput(Input.CommandExtend);
+                            break;
+                        case Command.Status:
+                            this.OutputStatus(inputString);
+                            break;
+                        default:
+                            Trace.TraceError(DateTime.Now + ": Serial: Unhandled command '{0}'", inputString);
+                            this.Output("Error: Unhandled console command: " + inputString);
+                            break;
                     }
                 }
                 else
