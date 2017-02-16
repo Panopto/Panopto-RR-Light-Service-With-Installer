@@ -116,7 +116,7 @@ Recorder-Status            | Description
 Init                       | Service is initializing, Remote Recorder state unknown
 PreviewingNoNextSchedule   | Previewing (Idle)
 PreviewingWithNextSchedule | Previewing, a recording is queued to start within the next hour
-TransitionAnyToRecording   | Paused or Previewing, attempting to Resume/Start
+TransitionAnyToRecording   | Paused or Previewing, attempting to Resume/Start Recording
 Recording                  | Recording
 TransitionRecordingToPause | Recording, attempting to Pause
 Paused                     | Paused
