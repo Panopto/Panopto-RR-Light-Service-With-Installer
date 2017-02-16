@@ -95,7 +95,7 @@ Possble data keywords are:
 
 Keyword                                | Description
 ---------------------------------------|---------------------------------------------
-Recorder-State                         | The current state of the remote recorder
+Recorder-Status                        | The current state of the remote recorder
 CurrentRecording-Id                    | Id (GUID) of the current recording
 CurrentRecording-Name                  | Name of the current recording
 CurrentRecording-StartTime             | Start time of the current recording
@@ -109,9 +109,9 @@ NextRecording-EndTime                  | End time of the queued recording
 NextRecording-MinutesUntilStartTime    | Minutes until start of the queued recording
 NextRecording-MinutesUntilEndTime      | Minutes until end of the queued recording
 
-Possible values for Recorder-State are:
+Possible values for Recorder-Status are:
 
-Recorder-State             | Description
+Recorder-Status            | Description
 ---------------------------|----------------------------------------------------------------
 Init                       | Service is initializing, Remote Recorder state unknown
 PreviewingNoNextSchedule   | Previewing (Idle)
