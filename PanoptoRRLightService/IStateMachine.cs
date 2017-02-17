@@ -89,5 +89,30 @@ namespace RRLightProgram
         /// The button is pressed released, regardless it's 'pressed' or 'held'.
         /// </summary>
         ButtonUp,
+
+        /// <summary>
+        /// Start recording.
+        /// </summary>
+        CommandStart,
+
+        /// <summary>
+        /// Stop recording.
+        /// </summary>
+        CommandStop,
+
+        /// <summary>
+        /// Pause recording.
+        /// </summary>
+        CommandPause,
+
+        /// <summary>
+        /// Resume recording.
+        /// </summary>
+        CommandResume,
+
+        /// <summary>
+        /// Extend recording.
+        /// </summary>
+        CommandExtend,
     }
 }
