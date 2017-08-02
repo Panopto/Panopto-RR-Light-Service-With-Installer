@@ -34,6 +34,7 @@ namespace RRLightProgram
         PreviewingNoNextSchedule,
         PreviewingWithNextSchedule,
         TransitionAnyToRecording,
+        PotentialRecording,
         Recording,
         TransitionRecordingToPause,
         Paused,
@@ -55,11 +56,12 @@ namespace RRLightProgram
         RecorderPreviewingNoNextSchedule,
         RecorderPreviewingWithNextSchedule,
         RecorderRecording,
+        RecorderStartedPotentialRecording,
         RecorderPaused,
         RecorderStopped,
 
         /// <summary>
-        /// Recoder may be in a state that is running, but not recording or previewing.
+        /// Recorder may be in a state that is running, but not recording or previewing.
         /// It may happen in a situation, for example, Windows Recorder takes the control
         /// of recording component and Remote Recorder may not take any action.
         /// </summary>

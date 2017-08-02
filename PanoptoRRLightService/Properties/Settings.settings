@@ -20,5 +20,8 @@
     <Setting Name="DeviceType" Type="System.String" Scope="Application">
       <Value Profile="(Default)">Delcom</Value>
     </Setting>
+    <Setting Name="RequireOptInForRecording" Type="System.Boolean" Scope="Application">
+      <Value Profile="(Default)">False</Value>
+    </Setting>
   </Settings>
 </SettingsFile>

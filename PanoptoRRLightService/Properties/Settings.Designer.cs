@@ -76,5 +76,14 @@ namespace RRLightProgram.Properties {
                 return ((string)(this["DeviceType"]));
             }
         }
+        
+        [global::System.Configuration.ApplicationScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("False")]
+        public bool RequireOptInForRecording {
+            get {
+                return ((bool)(this["RequireOptInForRecording"]));
+            }
+        }
     }
 }
