@@ -91,5 +91,10 @@ namespace RRLightProgram
         /// The button is pressed released, regardless it's 'pressed' or 'held'.
         /// </summary>
         ButtonUp,
+
+        /// <summary>
+        /// The opt-in timer we previously setup has elapsed
+        /// </summary>
+        OptInTimerElapsed,
     }
 }

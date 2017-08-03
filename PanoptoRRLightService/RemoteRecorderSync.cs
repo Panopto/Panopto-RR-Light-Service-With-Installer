@@ -126,6 +126,36 @@ namespace RRLightProgram
         }
 
         /// <summary>
+        /// Stop and delete the current recording (preventing upload)
+        /// </summary>
+        /// <returns>true on success</returns>
+        public bool StopAndDeleteCurrentRecording()
+        {
+            bool result = false;
+
+            try
+            {
+                RemoteRecorderState state = this.controller.GetCurrentState();
+                if (   state.CurrentRecording != null
+                    && state.Status != RemoteRecorderStatus.Stopped)
+                {
+                    result = this.controller.StopAndDeleteCurrentRecording(state.CurrentRecording.Id);
+
+                    if (!result)
+                    {
+                        Trace.TraceWarning("StopAndDeleteCurrentRecording failed.");
+                    }
+                }
+            }
+            catch (Exception e)
+            {
+                this.HandleRRException(e, false);
+            }
+
+            return result;
+        }
+
+        /// <summary>
         ///  Resume the current recording
         /// </summary>
         /// <returns>true on success</returns>
@@ -367,7 +397,7 @@ namespace RRLightProgram
             switch (state)
             {
                 case RemoteRecorderStatus.Stopped:
-                    return Input.RecorderStopped;
+                    return Input.RecorderStopped; 
 
                 case RemoteRecorderStatus.Recording:
                     if (Properties.Settings.Default.RequireOptInForRecording)
@@ -379,8 +409,7 @@ namespace RRLightProgram
                     {
                         return Input.RecorderRecording;
                     }
-             
-                           
+
                 case RemoteRecorderStatus.RecorderRunning:
                     return Input.RecorderDormant;
 
@@ -408,7 +437,7 @@ namespace RRLightProgram
                     return Input.None;
             }
         }
-        
+
         #endregion State monitor
     }
 }
