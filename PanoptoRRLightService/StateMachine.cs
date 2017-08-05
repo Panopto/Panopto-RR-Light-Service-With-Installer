@@ -18,7 +18,11 @@ namespace RRLightProgram
         /// <summary>
         /// FIFO queue to store incoming inputs.
         /// </summary>
-        private Queue<Input> inputQueue = new Queue<Input>();
+        private Queue<Tuple<ulong, Input>> inputQueue = new Queue<Tuple<ulong, Input>>();
+        /// <summary>
+        /// Counter for the input queue events
+        /// </summary>
+        ulong c_currentInputId = 0;
 
         /// <summary>
         /// Event to be signaled when inputQueue has any entry. Set and reset should be done under the lock of inputQueue.
@@ -112,10 +116,15 @@ namespace RRLightProgram
 
         public void PostInput(Input input)
         {
-            Trace.TraceInformation("Post: Input {0}", input);
+            Trace.TraceInformation("{0:hh:mm:ss:ffff} Post: Input:{1}", DateTime.UtcNow, input);
             lock (this.inputQueue)
             {
-                this.inputQueue.Enqueue(input);
+                if (c_currentInputId == ulong.MaxValue)
+                {
+                    c_currentInputId = 0;
+                }
+                this.inputQueue.Enqueue(new Tuple<ulong, Input>(++c_currentInputId, input));
+                Trace.TraceInformation("{0:hh:mm:ss:ffff} Post: Id:{1}, Input:{2} queued", DateTime.UtcNow, c_currentInputId, input);
                 this.inputQueueEvent.Set();
             }
         }
@@ -145,7 +154,7 @@ namespace RRLightProgram
                 }
 
                 // Pull an input from input queue.
-                Input input;
+                Tuple<ulong, Input> inputQueuItem;
                 lock (this.inputQueue)
                 {
                     if (this.inputQueue.Count == 0)
@@ -155,12 +164,15 @@ namespace RRLightProgram
                         continue;
                     }
 
-                    input = inputQueue.Dequeue();
+                    inputQueuItem = inputQueue.Dequeue();
                     if (this.inputQueue.Count == 0)
                     {
                         this.inputQueueEvent.Reset();
                     }
                 }
+
+                Trace.TraceInformation("{0:hh:mm:ss:ffff} Processing: Id:{1}, Input:{2}, Current State {3}", DateTime.UtcNow, inputQueuItem.Item1, inputQueuItem.Item2, this.state);
+                Input input = inputQueuItem.Item2;
 
                 // Look up the transition table.
                 Transition transition;
@@ -408,120 +420,6 @@ namespace RRLightProgram
             return true;
         }
 
-        /// <summary>
-        /// Turn light red.
-        /// </summary>
-        private bool ActionRespondButtonDownForUnavailableOperation(Input input)
-        {
-            this.light.SetSolid(LightColor.Red);
-            return true;
-        }
-
-        /// <summary>
-        /// Turn light off.
-        /// </summary>
-        private bool ActionRespondButtonUpForUnavailableOperation(Input input)
-        {
-            this.light.SetSolid(LightColor.Off);
-            return true;
-        }
-
-        /// <summary>
-        /// For explicit display in logs of button down in recording, no change in state.
-        /// </summary>
-        private bool ActionRespondButtonDownInRecording(Input input)
-        {
-            this.light.SetSolid(LightColor.Green);
-            return true;
-        }
-
-        /// <summary>
-        /// For explicit display in logs of button up in recording, no change in state.
-        /// </summary>
-        private bool ActionRespondButtonUpInRecording(Input input)
-        {
-            this.light.SetSolid(LightColor.Green);
-            return true;
-        }
-
-        /// <summary>
-        /// For explicit display in logs of button down in paused, no change in state.
-        /// </summary>
-        private bool ActionRespondButtonDownInPaused(Input input)
-        {
-            this.light.SetSolid(LightColor.Yellow);
-            return true;
-        }
-
-        /// <summary>
-        /// For explicit display in logs of button down in paused, no change in state.
-        /// </summary>
-        private bool ActionRespondButtonUpInPaused(Input input)
-        {
-            this.light.SetSolid(LightColor.Yellow);
-            return true;
-        }
-
-        /// <summary>
-        /// For explicit display in logs of button down in paused, no change in state.
-        /// </summary>
-        private bool ActionRespondButtonDownInStopped(Input input)
-        {
-            this.light.SetSolid(LightColor.Off);
-            return true;
-        }
-
-        /// <summary>
-        /// For explicit display in logs of button down in paused, no change in state.
-        /// </summary>
-        private bool ActionRespondButtonUpInStopped(Input input)
-        {
-            this.light.SetSolid(LightColor.Off);
-            return true;
-        }
-
-        /// <summary>
-        /// For explicit display in logs of button down in paused, no change in state.
-        /// </summary>
-        private bool ActionRespondButtonDownInPotentialRecording(Input input)
-        {
-            this.light.SetFlash(LightColor.Green);
-            return true;
-        }
-
-        /// <summary>
-        /// For explicit display in logs of button down in paused, no change in state.
-        /// </summary>
-        private bool ActionRespondButtonUpInPotentialRecording(Input input)
-        {
-            this.light.SetFlash(LightColor.Green);
-            return true;
-        }
-
-        /// <summary>
-        /// Turn light red if new recording is not supported.
-        /// </summary>
-        private bool ActionRespondButtonDownInPreviewing(Input input)
-        {
-            if (!this.remoteRecorder.SupportsStartNewRecording)
-            {
-                this.light.SetSolid(LightColor.Red);
-            }
-            return true;
-        }
-
-        /// <summary>
-        /// Turn light off.
-        /// </summary>
-        private bool ActionRespondButtonUpInPreviewing(Input input)
-        {
-            if (!this.remoteRecorder.SupportsStartNewRecording)
-            {
-                this.light.SetSolid(LightColor.Off);
-            }
-            return true;
-        }
-
         //Delete method to be later changed
         private bool ActionRequestStopAndDelete(Input input)
         {
@@ -533,10 +431,6 @@ namespace RRLightProgram
                 this.light.SetFlash(LightColor.Red);
                 Thread.Sleep(2000);
 
-                //TODO: Error handling here and elsewhere is wrong.  Statemachine will
-                //      be in the wrong state thinking we've stopped, but actually still recording.
-                //      Is there enough info passed in (or could we add more) to allow better recovery?
-                //      Could we call a 'reset current state' API on the controller?
                 this.light.SetFlash(LightColor.Green);
             }
 
@@ -595,148 +489,144 @@ namespace RRLightProgram
             }
             this.transitionTable = new Dictionary<Condition, Transition>();
 
-            this.transitionTable.Add(new Condition(State.Init, Input.RecorderPreviewingNoNextSchedule),     new Transition(this.ActionRespondPreviewing,            State.PreviewingNoNextSchedule));
-            this.transitionTable.Add(new Condition(State.Init, Input.RecorderPreviewingWithNextSchedule),   new Transition(this.ActionRespondPreviewing,            State.PreviewingWithNextSchedule));
-            this.transitionTable.Add(new Condition(State.Init, Input.RecorderRecording),                    new Transition(this.ActionRespondRecording,             State.Recording));
-            this.transitionTable.Add(new Condition(State.Init, Input.RecorderStartedPotentialRecording),    new Transition(this.ActionRespondPotentialRecording,    State.PotentialRecording));
-            this.transitionTable.Add(new Condition(State.Init, Input.RecorderPaused),                       new Transition(this.ActionRespondPaused,                State.Paused));
-            this.transitionTable.Add(new Condition(State.Init, Input.RecorderStopped),                      new Transition(this.ActionRespondStopped,               State.Stopped)); //transition to stop? why isn't it going into preview?
-            this.transitionTable.Add(new Condition(State.Init, Input.RecorderDormant),                      new Transition(this.ActionRespondDormant,               State.Dormant));
-            this.transitionTable.Add(new Condition(State.Init, Input.RecorderFaulted),                      new Transition(this.ActionRespondFaultedOrDisconnected, State.Faulted));
-            this.transitionTable.Add(new Condition(State.Init, Input.RecorderDisconnected),                 new Transition(this.ActionRespondFaultedOrDisconnected, State.Disconnected));
+            this.transitionTable.Add(new Condition(State.Init, Input.RecorderPreviewingNoNextSchedule), new Transition(this.ActionRespondPreviewing, State.PreviewingNoNextSchedule));
+            this.transitionTable.Add(new Condition(State.Init, Input.RecorderPreviewingWithNextSchedule), new Transition(this.ActionRespondPreviewing, State.PreviewingWithNextSchedule));
+            this.transitionTable.Add(new Condition(State.Init, Input.RecorderRecording), new Transition(this.ActionRespondRecording, State.Recording));
+            this.transitionTable.Add(new Condition(State.Init, Input.RecorderStartedPotentialRecording), new Transition(this.ActionRespondPotentialRecording, State.PotentialRecording));
+            this.transitionTable.Add(new Condition(State.Init, Input.RecorderPaused), new Transition(this.ActionRespondPaused, State.Paused));
+            this.transitionTable.Add(new Condition(State.Init, Input.RecorderStopped), new Transition(this.ActionRespondStopped, State.Stopped));
+            this.transitionTable.Add(new Condition(State.Init, Input.RecorderDormant), new Transition(this.ActionRespondDormant, State.Dormant));
+            this.transitionTable.Add(new Condition(State.Init, Input.RecorderFaulted), new Transition(this.ActionRespondFaultedOrDisconnected, State.Faulted));
+            this.transitionTable.Add(new Condition(State.Init, Input.RecorderDisconnected), new Transition(this.ActionRespondFaultedOrDisconnected, State.Disconnected));
 
-            this.transitionTable.Add(new Condition(State.PreviewingNoNextSchedule,   Input.RecorderPreviewingWithNextSchedule), new Transition(this.ActionNone,                             State.PreviewingWithNextSchedule));
-            this.transitionTable.Add(new Condition(State.PreviewingNoNextSchedule,   Input.RecorderRecording),                  new Transition(this.ActionRespondRecording,                 State.Recording));
-            this.transitionTable.Add(new Condition(State.PreviewingNoNextSchedule,   Input.RecorderStartedPotentialRecording),  new Transition(this.ActionRespondPotentialRecording,        State.PotentialRecording));
-            this.transitionTable.Add(new Condition(State.PreviewingNoNextSchedule,   Input.RecorderPaused),                     new Transition(this.ActionRespondPaused,                    State.Paused));
-            this.transitionTable.Add(new Condition(State.PreviewingNoNextSchedule,   Input.RecorderStopped),                    new Transition(this.ActionRespondStopped,                   State.Stopped));
-            this.transitionTable.Add(new Condition(State.PreviewingNoNextSchedule,   Input.RecorderDormant),                    new Transition(this.ActionRespondDormant,                   State.Dormant));
-            this.transitionTable.Add(new Condition(State.PreviewingNoNextSchedule,   Input.RecorderFaulted),                    new Transition(this.ActionRespondFaultedOrDisconnected,     State.Faulted));
-            this.transitionTable.Add(new Condition(State.PreviewingNoNextSchedule,   Input.RecorderDisconnected),               new Transition(this.ActionRespondFaultedOrDisconnected,     State.Disconnected));
-            this.transitionTable.Add(new Condition(State.PreviewingNoNextSchedule,   Input.ButtonHeld),                         new Transition(this.ActionRequestNewRecording,              State.TransitionAnyToRecording));
-            this.transitionTable.Add(new Condition(State.PreviewingNoNextSchedule,   Input.ButtonDown),                         new Transition(this.ActionRespondButtonDownInPreviewing,    State.PreviewingNoNextSchedule));
-            this.transitionTable.Add(new Condition(State.PreviewingNoNextSchedule,   Input.ButtonUp),                           new Transition(this.ActionRespondButtonUpInPreviewing,      State.PreviewingNoNextSchedule));
+            this.transitionTable.Add(new Condition(State.PreviewingNoNextSchedule, Input.RecorderPreviewingWithNextSchedule), new Transition(this.ActionNone, State.PreviewingWithNextSchedule));
+            this.transitionTable.Add(new Condition(State.PreviewingNoNextSchedule, Input.RecorderRecording), new Transition(this.ActionRespondRecording, State.Recording));
+            this.transitionTable.Add(new Condition(State.PreviewingNoNextSchedule, Input.RecorderStartedPotentialRecording), new Transition(this.ActionRespondPotentialRecording, State.PotentialRecording));
+            this.transitionTable.Add(new Condition(State.PreviewingNoNextSchedule, Input.RecorderPaused), new Transition(this.ActionRespondPaused, State.Paused));
+            this.transitionTable.Add(new Condition(State.PreviewingNoNextSchedule, Input.RecorderStopped), new Transition(this.ActionRespondStopped, State.Stopped));
+            this.transitionTable.Add(new Condition(State.PreviewingNoNextSchedule, Input.RecorderDormant), new Transition(this.ActionRespondDormant, State.Dormant));
+            this.transitionTable.Add(new Condition(State.PreviewingNoNextSchedule, Input.RecorderFaulted), new Transition(this.ActionRespondFaultedOrDisconnected, State.Faulted));
+            this.transitionTable.Add(new Condition(State.PreviewingNoNextSchedule, Input.RecorderDisconnected), new Transition(this.ActionRespondFaultedOrDisconnected, State.Disconnected));
+            this.transitionTable.Add(new Condition(State.PreviewingNoNextSchedule, Input.ButtonHeld), new Transition(this.ActionRequestNewRecording, State.TransitionAnyToRecording));
 
-            this.transitionTable.Add(new Condition(State.PreviewingWithNextSchedule, Input.RecorderRecording),                  new Transition(this.ActionRespondRecording,                 State.Recording));
-            this.transitionTable.Add(new Condition(State.PreviewingWithNextSchedule, Input.RecorderStartedPotentialRecording),  new Transition(this.ActionRespondPotentialRecording,        State.PotentialRecording));
-            this.transitionTable.Add(new Condition(State.PreviewingWithNextSchedule, Input.RecorderPaused),                     new Transition(this.ActionRespondPaused,                    State.Paused));
-            this.transitionTable.Add(new Condition(State.PreviewingWithNextSchedule, Input.RecorderStopped),                    new Transition(this.ActionRespondStopped,                   State.Stopped));
-            this.transitionTable.Add(new Condition(State.PreviewingWithNextSchedule, Input.RecorderDormant),                    new Transition(this.ActionRespondDormant,                   State.Dormant));
-            this.transitionTable.Add(new Condition(State.PreviewingWithNextSchedule, Input.RecorderFaulted),                    new Transition(this.ActionRespondFaultedOrDisconnected,     State.Faulted));
-            this.transitionTable.Add(new Condition(State.PreviewingWithNextSchedule, Input.RecorderDisconnected),               new Transition(this.ActionRespondFaultedOrDisconnected,     State.Disconnected));
-            this.transitionTable.Add(new Condition(State.PreviewingWithNextSchedule, Input.ButtonPressed),                      new Transition(this.ActionRequestNextRecording,             State.TransitionAnyToRecording));
-            this.transitionTable.Add(new Condition(State.PreviewingWithNextSchedule, Input.ButtonHeld),                         new Transition(this.ActionRequestNextRecording,             State.TransitionAnyToRecording));
+            this.transitionTable.Add(new Condition(State.PreviewingWithNextSchedule, Input.RecorderRecording), new Transition(this.ActionRespondRecording, State.Recording));
+            this.transitionTable.Add(new Condition(State.PreviewingWithNextSchedule, Input.RecorderStartedPotentialRecording), new Transition(this.ActionRespondPotentialRecording, State.PotentialRecording));
+            this.transitionTable.Add(new Condition(State.PreviewingWithNextSchedule, Input.RecorderPaused),new Transition(this.ActionRespondPaused, State.Paused));
+            this.transitionTable.Add(new Condition(State.PreviewingWithNextSchedule, Input.RecorderStopped), new Transition(this.ActionRespondStopped, State.Stopped));
+            this.transitionTable.Add(new Condition(State.PreviewingWithNextSchedule, Input.RecorderDormant), new Transition(this.ActionRespondDormant, State.Dormant));
+            this.transitionTable.Add(new Condition(State.PreviewingWithNextSchedule, Input.RecorderFaulted), new Transition(this.ActionRespondFaultedOrDisconnected, State.Faulted));
+            this.transitionTable.Add(new Condition(State.PreviewingWithNextSchedule, Input.RecorderDisconnected), new Transition(this.ActionRespondFaultedOrDisconnected, State.Disconnected));
+            this.transitionTable.Add(new Condition(State.PreviewingWithNextSchedule, Input.ButtonPressed), new Transition(this.ActionRequestNextRecording, State.TransitionAnyToRecording));
+            this.transitionTable.Add(new Condition(State.PreviewingWithNextSchedule, Input.ButtonHeld), new Transition(this.ActionRequestNextRecording, State.TransitionAnyToRecording));
 
-            this.transitionTable.Add(new Condition(State.TransitionAnyToRecording,   Input.RecorderPreviewingNoNextSchedule),   new Transition(this.ActionRespondPreviewing,            State.PreviewingNoNextSchedule));
-            this.transitionTable.Add(new Condition(State.TransitionAnyToRecording,   Input.RecorderPreviewingWithNextSchedule), new Transition(this.ActionRespondPreviewing,            State.PreviewingWithNextSchedule));
-            this.transitionTable.Add(new Condition(State.TransitionAnyToRecording,   Input.RecorderRecording),                  new Transition(this.ActionRespondRecording,             State.Recording));
-            this.transitionTable.Add(new Condition(State.TransitionAnyToRecording,   Input.RecorderStartedPotentialRecording),  new Transition(this.ActionRespondPotentialRecording,    State.PotentialRecording));
-            this.transitionTable.Add(new Condition(State.TransitionAnyToRecording,   Input.RecorderPaused),                     new Transition(this.ActionRespondPaused,                State.Paused));
-            this.transitionTable.Add(new Condition(State.TransitionAnyToRecording,   Input.RecorderStopped),                    new Transition(this.ActionRespondStopped,               State.Stopped));
-            this.transitionTable.Add(new Condition(State.TransitionAnyToRecording,   Input.RecorderDormant),                    new Transition(this.ActionRespondDormant,               State.Dormant));
-            this.transitionTable.Add(new Condition(State.TransitionAnyToRecording,   Input.RecorderFaulted),                    new Transition(this.ActionRespondFaultedOrDisconnected, State.Faulted));
-            this.transitionTable.Add(new Condition(State.TransitionAnyToRecording,   Input.RecorderDisconnected),               new Transition(this.ActionRespondFaultedOrDisconnected, State.Disconnected));
+            this.transitionTable.Add(new Condition(State.TransitionAnyToRecording, Input.RecorderPreviewingNoNextSchedule), new Transition(this.ActionRespondPreviewing, State.PreviewingNoNextSchedule));
+            this.transitionTable.Add(new Condition(State.TransitionAnyToRecording, Input.RecorderPreviewingWithNextSchedule), new Transition(this.ActionRespondPreviewing, State.PreviewingWithNextSchedule));
+            this.transitionTable.Add(new Condition(State.TransitionAnyToRecording, Input.RecorderRecording), new Transition(this.ActionRespondRecording, State.Recording));
+            this.transitionTable.Add(new Condition(State.TransitionAnyToRecording, Input.RecorderStartedPotentialRecording), new Transition(this.ActionRespondPotentialRecording, State.PotentialRecording));
+            this.transitionTable.Add(new Condition(State.TransitionAnyToRecording, Input.RecorderPaused), new Transition(this.ActionRespondPaused, State.Paused));
+            this.transitionTable.Add(new Condition(State.TransitionAnyToRecording, Input.RecorderStopped), new Transition(this.ActionRespondStopped, State.Stopped));
+            this.transitionTable.Add(new Condition(State.TransitionAnyToRecording, Input.RecorderDormant), new Transition(this.ActionRespondDormant, State.Dormant));
+            this.transitionTable.Add(new Condition(State.TransitionAnyToRecording, Input.RecorderFaulted), new Transition(this.ActionRespondFaultedOrDisconnected, State.Faulted));
+            this.transitionTable.Add(new Condition(State.TransitionAnyToRecording, Input.RecorderDisconnected), new Transition(this.ActionRespondFaultedOrDisconnected, State.Disconnected));
 
-            this.transitionTable.Add(new Condition(State.PotentialRecording, Input.RecorderPreviewingNoNextSchedule),   new Transition(this.ActionRespondPreviewing,            State.PreviewingNoNextSchedule));
-            this.transitionTable.Add(new Condition(State.PotentialRecording, Input.RecorderPreviewingWithNextSchedule), new Transition(this.ActionRespondPreviewing,            State.PreviewingWithNextSchedule));
-            this.transitionTable.Add(new Condition(State.PotentialRecording, Input.RecorderPaused),                     new Transition(this.ActionRespondPaused,                State.Paused));
-            this.transitionTable.Add(new Condition(State.PotentialRecording, Input.RecorderStopped),                    new Transition(this.ActionRespondStopped,               State.Stopped));
-            this.transitionTable.Add(new Condition(State.PotentialRecording, Input.RecorderDormant),                    new Transition(this.ActionRespondDormant,               State.Dormant));
-            this.transitionTable.Add(new Condition(State.PotentialRecording, Input.RecorderFaulted),                    new Transition(this.ActionRespondFaultedOrDisconnected, State.Faulted));
-            this.transitionTable.Add(new Condition(State.PotentialRecording, Input.RecorderDisconnected),               new Transition(this.ActionRespondFaultedOrDisconnected, State.Disconnected));
-            this.transitionTable.Add(new Condition(State.PotentialRecording, Input.ButtonPressed),                      new Transition(this.ActionRequestOptIn,                 State.Recording)); // Opt-in
-            this.transitionTable.Add(new Condition(State.PotentialRecording, Input.ButtonHeld),                         new Transition(this.ActionRequestStopAndDelete,         State.TransitionRecordingToStop)); // Opt-out
-            this.transitionTable.Add(new Condition(State.PotentialRecording, Input.OptInTimerElapsed),                  new Transition(this.ActionRequestStopAndDelete,         State.TransitionRecordingToStop)); // Opt-out
+            // to make sure paused does not go back to potential recording in confirmation of opt-in setting
+            this.transitionTable.Add(new Condition(State.TransitionPausedToRecording, Input.RecorderStartedPotentialRecording), new Transition(this.ActionRespondRecording, State.Recording)); // opt-in feature
+            this.transitionTable.Add(new Condition(State.TransitionPausedToRecording, Input.RecorderRecording),                 new Transition(this.ActionRespondRecording, State.Recording)); // normal feature
 
-            this.transitionTable.Add(new Condition(State.Recording, Input.RecorderPreviewingNoNextSchedule),   new Transition(this.ActionRespondPreviewing,            State.PreviewingNoNextSchedule));
-            this.transitionTable.Add(new Condition(State.Recording, Input.RecorderPreviewingWithNextSchedule), new Transition(this.ActionRespondPreviewing,            State.PreviewingWithNextSchedule));
-            this.transitionTable.Add(new Condition(State.Recording, Input.RecorderPaused),                     new Transition(this.ActionRespondPaused,                State.Paused));
-            this.transitionTable.Add(new Condition(State.Recording, Input.RecorderStopped),                    new Transition(this.ActionRespondStopped,               State.Stopped));
-            this.transitionTable.Add(new Condition(State.Recording, Input.RecorderDormant),                    new Transition(this.ActionRespondDormant,               State.Dormant));
-            this.transitionTable.Add(new Condition(State.Recording, Input.RecorderFaulted),                    new Transition(this.ActionRespondFaultedOrDisconnected, State.Faulted));
-            this.transitionTable.Add(new Condition(State.Recording, Input.RecorderDisconnected),               new Transition(this.ActionRespondFaultedOrDisconnected, State.Disconnected));
-            this.transitionTable.Add(new Condition(State.Recording, Input.ButtonPressed),                      new Transition(this.ActionRequestPause,                 State.TransitionRecordingToPause));
-            this.transitionTable.Add(new Condition(State.Recording, Input.ButtonHeld),                         new Transition(this.ActionRequestStop,                  State.TransitionRecordingToStop));
+            this.transitionTable.Add(new Condition(State.PotentialRecording, Input.RecorderPreviewingNoNextSchedule), new Transition(this.ActionRespondPreviewing, State.PreviewingNoNextSchedule));
+            this.transitionTable.Add(new Condition(State.PotentialRecording, Input.RecorderPreviewingWithNextSchedule), new Transition(this.ActionRespondPreviewing, State.PreviewingWithNextSchedule));
+            this.transitionTable.Add(new Condition(State.PotentialRecording, Input.RecorderPaused), new Transition(this.ActionRespondPaused, State.Paused));
+            this.transitionTable.Add(new Condition(State.PotentialRecording, Input.RecorderStopped), new Transition(this.ActionRespondStopped, State.Stopped));
+            this.transitionTable.Add(new Condition(State.PotentialRecording, Input.RecorderDormant), new Transition(this.ActionRespondDormant, State.Dormant));
+            this.transitionTable.Add(new Condition(State.PotentialRecording, Input.RecorderFaulted), new Transition(this.ActionRespondFaultedOrDisconnected, State.Faulted));
+            this.transitionTable.Add(new Condition(State.PotentialRecording, Input.RecorderDisconnected), new Transition(this.ActionRespondFaultedOrDisconnected, State.Disconnected));
+            this.transitionTable.Add(new Condition(State.PotentialRecording, Input.ButtonPressed), new Transition(this.ActionRequestOptIn, State.Recording)); // Opt-in
+            this.transitionTable.Add(new Condition(State.PotentialRecording, Input.ButtonHeld), new Transition(this.ActionRequestStopAndDelete, State.TransitionRecordingToStop)); // Opt-out
+            this.transitionTable.Add(new Condition(State.PotentialRecording, Input.OptInTimerElapsed), new Transition(this.ActionRequestStopAndDelete, State.TransitionRecordingToStop)); // Opt-out
 
-            this.transitionTable.Add(new Condition(State.TransitionRecordingToPause, Input.RecorderPreviewingNoNextSchedule),   new Transition(this.ActionRespondPreviewing,            State.PreviewingNoNextSchedule));
-            this.transitionTable.Add(new Condition(State.TransitionRecordingToPause, Input.RecorderPreviewingWithNextSchedule), new Transition(this.ActionRespondPreviewing,            State.PreviewingWithNextSchedule));
-            this.transitionTable.Add(new Condition(State.TransitionRecordingToPause, Input.RecorderRecording),                  new Transition(this.ActionRespondRecording,             State.Recording));
-            this.transitionTable.Add(new Condition(State.TransitionRecordingToPause, Input.RecorderPaused),                     new Transition(this.ActionRespondPaused,                State.Paused));
-            this.transitionTable.Add(new Condition(State.TransitionRecordingToPause, Input.RecorderStopped),                    new Transition(this.ActionRespondStopped,               State.Stopped));
-            this.transitionTable.Add(new Condition(State.TransitionRecordingToPause, Input.RecorderDormant),                    new Transition(this.ActionRespondDormant,               State.Dormant));
-            this.transitionTable.Add(new Condition(State.TransitionRecordingToPause, Input.RecorderFaulted),                    new Transition(this.ActionRespondFaultedOrDisconnected, State.Faulted));
-            this.transitionTable.Add(new Condition(State.TransitionRecordingToPause, Input.RecorderDisconnected),               new Transition(this.ActionRespondFaultedOrDisconnected, State.Disconnected));
+            this.transitionTable.Add(new Condition(State.Recording, Input.RecorderPreviewingNoNextSchedule), new Transition(this.ActionRespondPreviewing, State.PreviewingNoNextSchedule));
+            this.transitionTable.Add(new Condition(State.Recording, Input.RecorderPreviewingWithNextSchedule), new Transition(this.ActionRespondPreviewing, State.PreviewingWithNextSchedule));
+            this.transitionTable.Add(new Condition(State.Recording, Input.RecorderPaused), new Transition(this.ActionRespondPaused, State.Paused));
+            this.transitionTable.Add(new Condition(State.Recording, Input.RecorderStopped), new Transition(this.ActionRespondStopped, State.Stopped));
+            this.transitionTable.Add(new Condition(State.Recording, Input.RecorderDormant), new Transition(this.ActionRespondDormant, State.Dormant));
+            this.transitionTable.Add(new Condition(State.Recording, Input.RecorderFaulted), new Transition(this.ActionRespondFaultedOrDisconnected, State.Faulted));
+            this.transitionTable.Add(new Condition(State.Recording, Input.RecorderDisconnected), new Transition(this.ActionRespondFaultedOrDisconnected, State.Disconnected));
+            this.transitionTable.Add(new Condition(State.Recording, Input.ButtonPressed), new Transition(this.ActionRequestPause, State.TransitionRecordingToPause));
+            this.transitionTable.Add(new Condition(State.Recording, Input.ButtonHeld), new Transition(this.ActionRequestStop, State.TransitionRecordingToStop));
 
-            this.transitionTable.Add(new Condition(State.Paused, Input.RecorderPreviewingNoNextSchedule),   new Transition(this.ActionRespondPreviewing,            State.PreviewingNoNextSchedule));
-            this.transitionTable.Add(new Condition(State.Paused, Input.RecorderPreviewingWithNextSchedule), new Transition(this.ActionRespondPreviewing,            State.PreviewingWithNextSchedule));
-            this.transitionTable.Add(new Condition(State.Paused, Input.RecorderRecording),                  new Transition(this.ActionRespondRecording,             State.Recording));
-            this.transitionTable.Add(new Condition(State.Paused, Input.RecorderStartedPotentialRecording),  new Transition(this.ActionRespondRecording,             State.Recording)); // Consider all resumptions from pause to be already opted-in
-            this.transitionTable.Add(new Condition(State.Paused, Input.RecorderStopped),                    new Transition(this.ActionRespondStopped,               State.Stopped));
-            this.transitionTable.Add(new Condition(State.Paused, Input.RecorderDormant),                    new Transition(this.ActionRespondDormant,               State.Dormant));
-            this.transitionTable.Add(new Condition(State.Paused, Input.RecorderFaulted),                    new Transition(this.ActionRespondFaultedOrDisconnected, State.Faulted));
-            this.transitionTable.Add(new Condition(State.Paused, Input.RecorderDisconnected),               new Transition(this.ActionRespondFaultedOrDisconnected, State.Disconnected));
-            this.transitionTable.Add(new Condition(State.Paused, Input.ButtonPressed),                      new Transition(this.ActionRequestResume,                State.TransitionAnyToRecording));
-            this.transitionTable.Add(new Condition(State.Paused, Input.ButtonHeld),                         new Transition(this.ActionRequestStop,                  State.TransitionPausedToStop));
+            this.transitionTable.Add(new Condition(State.TransitionRecordingToPause, Input.RecorderPreviewingNoNextSchedule), new Transition(this.ActionRespondPreviewing, State.PreviewingNoNextSchedule));
+            this.transitionTable.Add(new Condition(State.TransitionRecordingToPause, Input.RecorderPreviewingWithNextSchedule), new Transition(this.ActionRespondPreviewing, State.PreviewingWithNextSchedule));
+            this.transitionTable.Add(new Condition(State.TransitionRecordingToPause, Input.RecorderRecording), new Transition(this.ActionRespondRecording, State.Recording));
+            this.transitionTable.Add(new Condition(State.TransitionRecordingToPause, Input.RecorderPaused), new Transition(this.ActionRespondPaused, State.Paused));
+            this.transitionTable.Add(new Condition(State.TransitionRecordingToPause, Input.RecorderStopped), new Transition(this.ActionRespondStopped, State.Stopped));
+            this.transitionTable.Add(new Condition(State.TransitionRecordingToPause, Input.RecorderDormant), new Transition(this.ActionRespondDormant, State.Dormant));
+            this.transitionTable.Add(new Condition(State.TransitionRecordingToPause, Input.RecorderFaulted), new Transition(this.ActionRespondFaultedOrDisconnected, State.Faulted));
+            this.transitionTable.Add(new Condition(State.TransitionRecordingToPause, Input.RecorderDisconnected), new Transition(this.ActionRespondFaultedOrDisconnected, State.Disconnected));
 
-            this.transitionTable.Add(new Condition(State.TransitionPausedToStop, Input.RecorderPreviewingNoNextSchedule),   new Transition(this.ActionRespondPreviewing,            State.PreviewingNoNextSchedule));
-            this.transitionTable.Add(new Condition(State.TransitionPausedToStop, Input.RecorderPreviewingWithNextSchedule), new Transition(this.ActionRespondPreviewing,            State.PreviewingWithNextSchedule));
-            this.transitionTable.Add(new Condition(State.TransitionPausedToStop, Input.RecorderRecording),                  new Transition(this.ActionRespondRecording,             State.Recording));
-            this.transitionTable.Add(new Condition(State.TransitionPausedToStop, Input.RecorderPaused),                     new Transition(this.ActionRespondPaused,                State.Paused));
-            this.transitionTable.Add(new Condition(State.TransitionPausedToStop, Input.RecorderStopped),                    new Transition(this.ActionRespondStopped,               State.Stopped));
-            this.transitionTable.Add(new Condition(State.TransitionPausedToStop, Input.RecorderDormant),                    new Transition(this.ActionRespondDormant,               State.Dormant));
-            this.transitionTable.Add(new Condition(State.TransitionPausedToStop, Input.RecorderFaulted),                    new Transition(this.ActionRespondFaultedOrDisconnected, State.Faulted));
-            this.transitionTable.Add(new Condition(State.TransitionPausedToStop, Input.RecorderDisconnected),               new Transition(this.ActionRespondFaultedOrDisconnected, State.Disconnected));
+            this.transitionTable.Add(new Condition(State.Paused, Input.RecorderPreviewingNoNextSchedule), new Transition(this.ActionRespondPreviewing, State.PreviewingNoNextSchedule));
+            this.transitionTable.Add(new Condition(State.Paused, Input.RecorderPreviewingWithNextSchedule), new Transition(this.ActionRespondPreviewing, State.PreviewingWithNextSchedule));
+            this.transitionTable.Add(new Condition(State.Paused, Input.RecorderRecording), new Transition(this.ActionRespondRecording, State.Recording));
+            this.transitionTable.Add(new Condition(State.Paused, Input.RecorderStartedPotentialRecording), new Transition(this.ActionRespondRecording, State.Recording)); // Consider all resumptions from pause to be already opted-in
+            this.transitionTable.Add(new Condition(State.Paused, Input.RecorderStopped), new Transition(this.ActionRespondStopped, State.Stopped));
+            this.transitionTable.Add(new Condition(State.Paused, Input.RecorderDormant), new Transition(this.ActionRespondDormant, State.Dormant));
+            this.transitionTable.Add(new Condition(State.Paused, Input.RecorderFaulted), new Transition(this.ActionRespondFaultedOrDisconnected, State.Faulted));
+            this.transitionTable.Add(new Condition(State.Paused, Input.RecorderDisconnected), new Transition(this.ActionRespondFaultedOrDisconnected, State.Disconnected));
+            this.transitionTable.Add(new Condition(State.Paused, Input.ButtonPressed), new Transition(this.ActionRequestResume, State.TransitionPausedToRecording)); // new state
+            this.transitionTable.Add(new Condition(State.Paused, Input.ButtonHeld), new Transition(this.ActionRequestStop, State.TransitionPausedToStop));
 
-            this.transitionTable.Add(new Condition(State.TransitionRecordingToStop, Input.RecorderPreviewingNoNextSchedule),    new Transition(this.ActionRespondPreviewing,            State.PreviewingNoNextSchedule));
-            this.transitionTable.Add(new Condition(State.TransitionRecordingToStop, Input.RecorderPreviewingWithNextSchedule),  new Transition(this.ActionRespondPreviewing,            State.PreviewingWithNextSchedule));
-            this.transitionTable.Add(new Condition(State.TransitionRecordingToStop, Input.RecorderRecording),                   new Transition(this.ActionRespondRecording,             State.Recording));
-            this.transitionTable.Add(new Condition(State.TransitionRecordingToStop, Input.RecorderPaused),                      new Transition(this.ActionRespondPaused,                State.Paused));
-            this.transitionTable.Add(new Condition(State.TransitionRecordingToStop, Input.RecorderStopped),                     new Transition(this.ActionRespondStopped,               State.Stopped));
-            this.transitionTable.Add(new Condition(State.TransitionRecordingToStop, Input.RecorderDormant),                     new Transition(this.ActionRespondDormant,               State.Dormant));
-            this.transitionTable.Add(new Condition(State.TransitionRecordingToStop, Input.RecorderFaulted),                     new Transition(this.ActionRespondFaultedOrDisconnected, State.Faulted));
-            this.transitionTable.Add(new Condition(State.TransitionRecordingToStop, Input.RecorderDisconnected),                new Transition(this.ActionRespondFaultedOrDisconnected, State.Disconnected));
+            this.transitionTable.Add(new Condition(State.TransitionPausedToStop, Input.RecorderPreviewingNoNextSchedule), new Transition(this.ActionRespondPreviewing, State.PreviewingNoNextSchedule));
+            this.transitionTable.Add(new Condition(State.TransitionPausedToStop, Input.RecorderPreviewingWithNextSchedule), new Transition(this.ActionRespondPreviewing, State.PreviewingWithNextSchedule));
+            this.transitionTable.Add(new Condition(State.TransitionPausedToStop, Input.RecorderRecording), new Transition(this.ActionRespondRecording, State.Recording));
+            this.transitionTable.Add(new Condition(State.TransitionPausedToStop, Input.RecorderPaused), new Transition(this.ActionRespondPaused, State.Paused));
+            this.transitionTable.Add(new Condition(State.TransitionPausedToStop, Input.RecorderStopped), new Transition(this.ActionRespondStopped, State.Stopped));
+            this.transitionTable.Add(new Condition(State.TransitionPausedToStop, Input.RecorderDormant), new Transition(this.ActionRespondDormant, State.Dormant));
+            this.transitionTable.Add(new Condition(State.TransitionPausedToStop, Input.RecorderFaulted), new Transition(this.ActionRespondFaultedOrDisconnected, State.Faulted));
+            this.transitionTable.Add(new Condition(State.TransitionPausedToStop, Input.RecorderDisconnected), new Transition(this.ActionRespondFaultedOrDisconnected, State.Disconnected));
 
-            this.transitionTable.Add(new Condition(State.Stopped, Input.RecorderPreviewingNoNextSchedule),      new Transition(this.ActionRespondPreviewing,            State.PreviewingNoNextSchedule));
-            this.transitionTable.Add(new Condition(State.Stopped, Input.RecorderPreviewingWithNextSchedule),    new Transition(this.ActionRespondPreviewing,            State.PreviewingWithNextSchedule));
-            this.transitionTable.Add(new Condition(State.Stopped, Input.RecorderRecording),                     new Transition(this.ActionRespondRecording,             State.Recording));
-            this.transitionTable.Add(new Condition(State.Stopped, Input.RecorderStartedPotentialRecording),     new Transition(this.ActionRespondPotentialRecording,    State.PotentialRecording));
-            this.transitionTable.Add(new Condition(State.Stopped, Input.RecorderPaused),                        new Transition(this.ActionRespondPaused,                State.Paused));
-            this.transitionTable.Add(new Condition(State.Stopped, Input.RecorderDormant),                       new Transition(this.ActionRespondDormant,               State.Dormant));
-            this.transitionTable.Add(new Condition(State.Stopped, Input.RecorderFaulted),                       new Transition(this.ActionRespondFaultedOrDisconnected, State.Faulted));
-            this.transitionTable.Add(new Condition(State.Stopped, Input.RecorderDisconnected),                  new Transition(this.ActionRespondFaultedOrDisconnected, State.Disconnected));
+            this.transitionTable.Add(new Condition(State.TransitionRecordingToStop, Input.RecorderPreviewingNoNextSchedule), new Transition(this.ActionRespondPreviewing, State.PreviewingNoNextSchedule));
+            this.transitionTable.Add(new Condition(State.TransitionRecordingToStop, Input.RecorderPreviewingWithNextSchedule), new Transition(this.ActionRespondPreviewing, State.PreviewingWithNextSchedule));
+            this.transitionTable.Add(new Condition(State.TransitionRecordingToStop, Input.RecorderRecording), new Transition(this.ActionRespondRecording, State.Recording));
+            this.transitionTable.Add(new Condition(State.TransitionRecordingToStop, Input.RecorderPaused), new Transition(this.ActionRespondPaused, State.Paused));
+            this.transitionTable.Add(new Condition(State.TransitionRecordingToStop, Input.RecorderStopped), new Transition(this.ActionRespondStopped, State.Stopped));
+            this.transitionTable.Add(new Condition(State.TransitionRecordingToStop, Input.RecorderDormant), new Transition(this.ActionRespondDormant, State.Dormant));
+            this.transitionTable.Add(new Condition(State.TransitionRecordingToStop, Input.RecorderFaulted), new Transition(this.ActionRespondFaultedOrDisconnected, State.Faulted));
+            this.transitionTable.Add(new Condition(State.TransitionRecordingToStop, Input.RecorderDisconnected), new Transition(this.ActionRespondFaultedOrDisconnected, State.Disconnected));
 
-            this.transitionTable.Add(new Condition(State.Dormant, Input.RecorderPreviewingNoNextSchedule),      new Transition(this.ActionRespondPreviewing,                        State.PreviewingNoNextSchedule));
-            this.transitionTable.Add(new Condition(State.Dormant, Input.RecorderPreviewingWithNextSchedule),    new Transition(this.ActionRespondPreviewing,                        State.PreviewingWithNextSchedule));
-            this.transitionTable.Add(new Condition(State.Dormant, Input.RecorderRecording),                     new Transition(this.ActionRespondRecording,                         State.Recording));
-            this.transitionTable.Add(new Condition(State.Dormant, Input.RecorderStartedPotentialRecording),     new Transition(this.ActionRespondPotentialRecording,                State.PotentialRecording));
-            this.transitionTable.Add(new Condition(State.Dormant, Input.RecorderPaused),                        new Transition(this.ActionRespondPaused,                            State.Paused));
-            this.transitionTable.Add(new Condition(State.Dormant, Input.RecorderStopped),                       new Transition(this.ActionRespondStopped,                           State.Stopped));
-            this.transitionTable.Add(new Condition(State.Dormant, Input.RecorderFaulted),                       new Transition(this.ActionRespondFaultedOrDisconnected,             State.Faulted));
-            this.transitionTable.Add(new Condition(State.Dormant, Input.RecorderDisconnected),                  new Transition(this.ActionRespondFaultedOrDisconnected,             State.Disconnected));
-            this.transitionTable.Add(new Condition(State.Dormant, Input.ButtonDown),                            new Transition(this.ActionRespondButtonDownForUnavailableOperation, State.Dormant));
-            this.transitionTable.Add(new Condition(State.Dormant, Input.ButtonUp),                              new Transition(this.ActionRespondButtonUpForUnavailableOperation,   State.Dormant));
+            this.transitionTable.Add(new Condition(State.Stopped, Input.RecorderPreviewingNoNextSchedule), new Transition(this.ActionRespondPreviewing, State.PreviewingNoNextSchedule));
+            this.transitionTable.Add(new Condition(State.Stopped, Input.RecorderPreviewingWithNextSchedule), new Transition(this.ActionRespondPreviewing, State.PreviewingWithNextSchedule));
+            this.transitionTable.Add(new Condition(State.Stopped, Input.RecorderRecording), new Transition(this.ActionRespondRecording, State.Recording));
+            this.transitionTable.Add(new Condition(State.Stopped, Input.RecorderStartedPotentialRecording), new Transition(this.ActionRespondPotentialRecording, State.PotentialRecording));
+            this.transitionTable.Add(new Condition(State.Stopped, Input.RecorderPaused), new Transition(this.ActionRespondPaused, State.Paused));
+            this.transitionTable.Add(new Condition(State.Stopped, Input.RecorderDormant), new Transition(this.ActionRespondDormant, State.Dormant));
+            this.transitionTable.Add(new Condition(State.Stopped, Input.RecorderFaulted), new Transition(this.ActionRespondFaultedOrDisconnected, State.Faulted));
+            this.transitionTable.Add(new Condition(State.Stopped, Input.RecorderDisconnected), new Transition(this.ActionRespondFaultedOrDisconnected, State.Disconnected));
 
-            this.transitionTable.Add(new Condition(State.Faulted, Input.RecorderPreviewingNoNextSchedule),      new Transition(this.ActionRespondPreviewing,                        State.PreviewingNoNextSchedule));
-            this.transitionTable.Add(new Condition(State.Faulted, Input.RecorderPreviewingWithNextSchedule),    new Transition(this.ActionRespondPreviewing,                        State.PreviewingWithNextSchedule));
-            this.transitionTable.Add(new Condition(State.Faulted, Input.RecorderRecording),                     new Transition(this.ActionRespondRecording,                         State.Recording));
-            this.transitionTable.Add(new Condition(State.Faulted, Input.RecorderStartedPotentialRecording),     new Transition(this.ActionRespondPotentialRecording,                State.PotentialRecording));
-            this.transitionTable.Add(new Condition(State.Faulted, Input.RecorderPaused),                        new Transition(this.ActionRespondPaused,                            State.Paused));
-            this.transitionTable.Add(new Condition(State.Faulted, Input.RecorderStopped),                       new Transition(this.ActionRespondStopped,                           State.Stopped));
-            this.transitionTable.Add(new Condition(State.Faulted, Input.RecorderDormant),                       new Transition(this.ActionRespondDormant,                           State.Dormant));
-            this.transitionTable.Add(new Condition(State.Faulted, Input.RecorderDisconnected),                  new Transition(this.ActionRespondFaultedOrDisconnected,             State.Disconnected));
-            this.transitionTable.Add(new Condition(State.Faulted, Input.ButtonDown),                            new Transition(this.ActionRespondButtonDownForUnavailableOperation, State.Faulted));
-            this.transitionTable.Add(new Condition(State.Faulted, Input.ButtonUp),                              new Transition(this.ActionRespondButtonUpForUnavailableOperation,   State.Faulted));
+            this.transitionTable.Add(new Condition(State.Dormant, Input.RecorderPreviewingNoNextSchedule), new Transition(this.ActionRespondPreviewing, State.PreviewingNoNextSchedule));
+            this.transitionTable.Add(new Condition(State.Dormant, Input.RecorderPreviewingWithNextSchedule), new Transition(this.ActionRespondPreviewing, State.PreviewingWithNextSchedule));
+            this.transitionTable.Add(new Condition(State.Dormant, Input.RecorderRecording), new Transition(this.ActionRespondRecording, State.Recording));
+            this.transitionTable.Add(new Condition(State.Dormant, Input.RecorderStartedPotentialRecording), new Transition(this.ActionRespondPotentialRecording, State.PotentialRecording));
+            this.transitionTable.Add(new Condition(State.Dormant, Input.RecorderPaused), new Transition(this.ActionRespondPaused, State.Paused));
+            this.transitionTable.Add(new Condition(State.Dormant, Input.RecorderStopped), new Transition(this.ActionRespondStopped, State.Stopped));
+            this.transitionTable.Add(new Condition(State.Dormant, Input.RecorderFaulted), new Transition(this.ActionRespondFaultedOrDisconnected, State.Faulted));
+            this.transitionTable.Add(new Condition(State.Dormant, Input.RecorderDisconnected), new Transition(this.ActionRespondFaultedOrDisconnected, State.Disconnected));
+            
+            this.transitionTable.Add(new Condition(State.Faulted, Input.RecorderPreviewingNoNextSchedule), new Transition(this.ActionRespondPreviewing, State.PreviewingNoNextSchedule));
+            this.transitionTable.Add(new Condition(State.Faulted, Input.RecorderPreviewingWithNextSchedule), new Transition(this.ActionRespondPreviewing, State.PreviewingWithNextSchedule));
+            this.transitionTable.Add(new Condition(State.Faulted, Input.RecorderRecording), new Transition(this.ActionRespondRecording, State.Recording));
+            this.transitionTable.Add(new Condition(State.Faulted, Input.RecorderStartedPotentialRecording), new Transition(this.ActionRespondPotentialRecording, State.PotentialRecording));
+            this.transitionTable.Add(new Condition(State.Faulted, Input.RecorderPaused), new Transition(this.ActionRespondPaused, State.Paused));
+            this.transitionTable.Add(new Condition(State.Faulted, Input.RecorderStopped), new Transition(this.ActionRespondStopped, State.Stopped));
+            this.transitionTable.Add(new Condition(State.Faulted, Input.RecorderDormant), new Transition(this.ActionRespondDormant, State.Dormant));
+            this.transitionTable.Add(new Condition(State.Faulted, Input.RecorderDisconnected), new Transition(this.ActionRespondFaultedOrDisconnected, State.Disconnected));
 
-            this.transitionTable.Add(new Condition(State.Disconnected, Input.RecorderPreviewingNoNextSchedule),     new Transition(this.ActionRespondPreviewing,                        State.PreviewingNoNextSchedule));
-            this.transitionTable.Add(new Condition(State.Disconnected, Input.RecorderPreviewingWithNextSchedule),   new Transition(this.ActionRespondPreviewing,                        State.PreviewingWithNextSchedule));
-            this.transitionTable.Add(new Condition(State.Disconnected, Input.RecorderRecording),                    new Transition(this.ActionRespondRecording,                         State.Recording));
-            this.transitionTable.Add(new Condition(State.Disconnected, Input.RecorderStartedPotentialRecording),    new Transition(this.ActionRespondPotentialRecording,                State.PotentialRecording));
-            this.transitionTable.Add(new Condition(State.Disconnected, Input.RecorderPaused),                       new Transition(this.ActionRespondPaused,                            State.Paused));
-            this.transitionTable.Add(new Condition(State.Disconnected, Input.RecorderStopped),                      new Transition(this.ActionRespondStopped,                           State.Stopped));
-            this.transitionTable.Add(new Condition(State.Disconnected, Input.RecorderDormant),                      new Transition(this.ActionRespondDormant,                           State.Dormant));
-            this.transitionTable.Add(new Condition(State.Disconnected, Input.RecorderFaulted),                      new Transition(this.ActionRespondFaultedOrDisconnected,             State.Faulted));
-            this.transitionTable.Add(new Condition(State.Disconnected, Input.ButtonDown),                           new Transition(this.ActionRespondButtonDownForUnavailableOperation, State.Disconnected));
-            this.transitionTable.Add(new Condition(State.Disconnected, Input.ButtonUp),                             new Transition(this.ActionRespondButtonUpForUnavailableOperation,   State.Disconnected));
+            this.transitionTable.Add(new Condition(State.Disconnected, Input.RecorderPreviewingNoNextSchedule), new Transition(this.ActionRespondPreviewing, State.PreviewingNoNextSchedule));
+            this.transitionTable.Add(new Condition(State.Disconnected, Input.RecorderPreviewingWithNextSchedule), new Transition(this.ActionRespondPreviewing, State.PreviewingWithNextSchedule));
+            this.transitionTable.Add(new Condition(State.Disconnected, Input.RecorderRecording), new Transition(this.ActionRespondRecording, State.Recording));
+            this.transitionTable.Add(new Condition(State.Disconnected, Input.RecorderStartedPotentialRecording), new Transition(this.ActionRespondPotentialRecording, State.PotentialRecording));
+            this.transitionTable.Add(new Condition(State.Disconnected, Input.RecorderPaused), new Transition(this.ActionRespondPaused, State.Paused));
+            this.transitionTable.Add(new Condition(State.Disconnected, Input.RecorderStopped), new Transition(this.ActionRespondStopped, State.Stopped));
+            this.transitionTable.Add(new Condition(State.Disconnected, Input.RecorderDormant), new Transition(this.ActionRespondDormant, State.Dormant));
+            this.transitionTable.Add(new Condition(State.Disconnected, Input.RecorderFaulted), new Transition(this.ActionRespondFaultedOrDisconnected, State.Faulted));
         }
 
         #endregion State machine transition table
