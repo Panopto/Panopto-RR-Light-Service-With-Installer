@@ -37,7 +37,7 @@ namespace RRLightProgram
         PotentialRecording,
         Recording,
         TransitionRecordingToPause,
-        TransitionPausedToRecording, //added this one to take care of the flashing issue. Will transition to recording regardless of opt-in setting
+        TransitionPausedToRecording,
         Paused,
         TransitionPausedToStop,
         TransitionRecordingToStop,
