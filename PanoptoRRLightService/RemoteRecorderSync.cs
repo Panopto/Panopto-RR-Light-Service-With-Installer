@@ -62,9 +62,9 @@ namespace RRLightProgram
             Process process = Process.GetProcessesByName(RemoteRecorderSync.RemoteRecorderProcessName).FirstOrDefault();
             if (process == null)
             {
-                throw new ApplicationException("Remote recoder process is not running.");
+                throw new ApplicationException("Remote recorder process is not running.");
             }
-
+            
             try
             {
                 AssemblyName an = AssemblyName.GetAssemblyName(process.MainModule.FileName);
@@ -73,7 +73,7 @@ namespace RRLightProgram
             catch (System.ComponentModel.Win32Exception)
             {
                 // This may happen if this service runs without admin privilege.
-                Trace.TraceInformation("Assembly information of Remote Recoder is not available. Assuming 5.0.0+.");
+                Trace.TraceInformation("Assembly information of Remote Recorder is not available. Assuming 5.0.0+.");
                 this.SupportsStartNewRecording = true;
             }
 
@@ -114,6 +114,36 @@ namespace RRLightProgram
                         {
                             Trace.TraceWarning("StopCurrentRecording failed.");
                         }
+                    }
+                }
+            }
+            catch (Exception e)
+            {
+                this.HandleRRException(e, false);
+            }
+
+            return result;
+        }
+
+        /// <summary>
+        /// Stop and delete the current recording (preventing upload)
+        /// </summary>
+        /// <returns>true on success</returns>
+        public bool StopAndDeleteCurrentRecording()
+        {
+            bool result = false;
+
+            try
+            {
+                RemoteRecorderState state = this.controller.GetCurrentState();
+                if (   state.CurrentRecording != null
+                    && state.Status != RemoteRecorderStatus.Stopped)
+                {
+                    result = this.controller.StopAndDeleteCurrentRecording(state.CurrentRecording.Id);
+
+                    if (!result)
+                    {
+                        Trace.TraceWarning("StopAndDeleteCurrentRecording failed.");
                     }
                 }
             }
@@ -230,6 +260,7 @@ namespace RRLightProgram
                     nextRecording == null)
                 {
                     result = this.controller.StartNewRecording(false);
+
                     if (!result)
                     {
                         Trace.TraceWarning("StartNewRecording failed.");
@@ -284,7 +315,6 @@ namespace RRLightProgram
             ChannelFactory<IRemoteRecorderController> channelFactory = new ChannelFactory<IRemoteRecorderController>(
                 new NetNamedPipeBinding(),
                 new EndpointAddress(Panopto.RemoteRecorderAPI.V1.Constants.ControllerEndpoint));
-
             this.controller = channelFactory.CreateChannel();
         }
 
@@ -367,10 +397,18 @@ namespace RRLightProgram
             switch (state)
             {
                 case RemoteRecorderStatus.Stopped:
-                    return Input.RecorderStopped;
+                    return Input.RecorderStopped; 
 
                 case RemoteRecorderStatus.Recording:
-                    return Input.RecorderRecording;
+                    if (Properties.Settings.Default.RequireOptInForRecording)
+                    {
+                        //If the settings require opt-in, then go to the 'potential recording' state
+                        return Input.RecorderStartedPotentialRecording;
+                    }
+                    else
+                    {
+                        return Input.RecorderRecording;
+                    }
 
                 case RemoteRecorderStatus.RecorderRunning:
                     return Input.RecorderDormant;

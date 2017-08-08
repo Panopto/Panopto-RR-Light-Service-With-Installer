@@ -22,10 +22,10 @@ namespace RRLightProgram
                 // Instead, all messages will be redirected to log file in "Logs" subcirectory.
                 DirectoryInfo currentDirectory = new DirectoryInfo(Directory.GetCurrentDirectory());
                 DirectoryInfo logsDirectory = currentDirectory.CreateSubdirectory("Logs");
-                var listner = new TextWriterTraceListener(
+                var listener = new TextWriterTraceListener(
                     Path.Combine(logsDirectory.FullName, string.Format("RRLightServiceDebug-{0:yy-MM-dd-HH-mm}.log", DateTime.UtcNow)));
-                listner.TraceOutputOptions |= TraceOptions.DateTime;
-                Trace.Listeners.Add(listner);
+                listener.TraceOutputOptions |= TraceOptions.DateTime;
+                Trace.Listeners.Add(listener);
                 Trace.AutoFlush = true;
 
                 // Always enable verbose trace.
@@ -36,8 +36,8 @@ namespace RRLightProgram
             else
             {
                 // Send trace messages to Event Log.
-                var listner = new EventLogTraceListener("PanoptoRRLightService");
-                Trace.Listeners.Add(listner);
+                var listener = new EventLogTraceListener("PanoptoRRLightService");
+                Trace.Listeners.Add(listener);
 
                 // Enable verbose trace if config is set.
                 TraceVerbose.Enabled = Properties.Settings.Default.EnableVerboseTrace;
