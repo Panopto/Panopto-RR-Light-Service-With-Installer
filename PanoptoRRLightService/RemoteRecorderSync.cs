@@ -13,7 +13,8 @@ namespace RRLightProgram
     {
         #region Variables
 
-        private const string RemoteRecorderServiceName = "Panopto Remote Recorder Service";
+        //private const string RemoteRecorderServiceName = "Panopto Remote Recorder Service";
+        private const string RemoteRecorderServiceName = "PanoptoRemoteRecorderService";
         private const string RemoteRecorderProcessName = "RemoteRecorder";
 
         /// <summary>

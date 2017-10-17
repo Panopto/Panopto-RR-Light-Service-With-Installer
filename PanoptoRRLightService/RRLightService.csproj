@@ -94,6 +94,8 @@
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="StateMachine.cs" />
+    <Compile Include="SwivlChico\SwivlChicoDll.cs" />
+    <Compile Include="SwivlChico\SwivlChicoLight.cs" />
     <Compile Include="TraceVerbose.cs" />
   </ItemGroup>
   <ItemGroup>
@@ -104,6 +106,7 @@
     <None Include="Properties\Settings.settings">
       <Generator>SettingsSingleFileGenerator</Generator>
       <LastGenOutput>Settings.Designer.cs</LastGenOutput>
+      <SubType>Designer</SubType>
     </None>
   </ItemGroup>
   <ItemGroup>
@@ -134,9 +137,13 @@
   <ItemGroup>
     <None Include="ReferenceAssembly\RemoteRecorderAPI.dll" />
   </ItemGroup>
+  <ItemGroup>
+    <Content Include="SwivlChico\chicntrl.dll" />
+  </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <PropertyGroup>
     <PostBuildEvent>copy /y "$(ProjectDir)Delcom\DelcomDLL.dll" "$(TargetDir)DelcomDLL.dll"
+copy /y "$(ProjectDir)SwivlChico\chicntrl.dll" "$(TargetDir)chicntrl.dll"
 </PostBuildEvent>
   </PropertyGroup>
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 

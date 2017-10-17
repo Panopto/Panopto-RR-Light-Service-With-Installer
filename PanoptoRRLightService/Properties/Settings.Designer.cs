@@ -12,7 +12,7 @@ namespace RRLightProgram.Properties {
     
     
     [global::System.Runtime.CompilerServices.CompilerGeneratedAttribute()]
-    [global::System.CodeDom.Compiler.GeneratedCodeAttribute("Microsoft.VisualStudio.Editors.SettingsDesigner.SettingsSingleFileGenerator", "14.0.0.0")]
+    [global::System.CodeDom.Compiler.GeneratedCodeAttribute("Microsoft.VisualStudio.Editors.SettingsDesigner.SettingsSingleFileGenerator", "12.0.0.0")]
     internal sealed partial class Settings : global::System.Configuration.ApplicationSettingsBase {
         
         private static Settings defaultInstance = ((Settings)(global::System.Configuration.ApplicationSettingsBase.Synchronized(new Settings())));
@@ -70,7 +70,7 @@ namespace RRLightProgram.Properties {
         
         [global::System.Configuration.ApplicationScopedSettingAttribute()]
         [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
-        [global::System.Configuration.DefaultSettingValueAttribute("Delcom")]
+        [global::System.Configuration.DefaultSettingValueAttribute("SwivlChico")]
         public string DeviceType {
             get {
                 return ((string)(this["DeviceType"]));
@@ -92,6 +92,15 @@ namespace RRLightProgram.Properties {
         public bool RequireOptInForRecording {
             get {
                 return ((bool)(this["RequireOptInForRecording"]));
+            }
+        }
+        
+        [global::System.Configuration.ApplicationScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("00:00:00.0100000")]
+        public global::System.TimeSpan SwivlChicoButtonPollingInterval {
+            get {
+                return ((global::System.TimeSpan)(this["SwivlChicoButtonPollingInterval"]));
             }
         }
     }

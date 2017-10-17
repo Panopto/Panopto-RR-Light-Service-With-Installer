@@ -20,6 +20,7 @@ namespace RRLightProgram
         private RemoteRecorderSync remoteRecorderSync = null;
 
         private DelcomLight delcomLight = null;
+        private SwivlChicoLight chicoLight = null;
 
         /// <summary>
         /// Constrocutor.
@@ -56,6 +57,7 @@ namespace RRLightProgram
             {
                 // Set up of Delcom light (with button) device.
                 this.delcomLight = new DelcomLight((IStateMachine)this.stateMachine);
+                
                 lightControl = this.delcomLight as ILightControl;
 
                 if (!this.delcomLight.Start())
@@ -69,6 +71,23 @@ namespace RRLightProgram
                 }
             }
             // TODO: add here for device specific start up when another device type is added.
+            else if (string.Compare(Properties.Settings.Default.DeviceType, "SwivlChico", StringComparison.OrdinalIgnoreCase) == 0)
+            {
+                // Set up of SwivlChico light (with button) device.
+                this.chicoLight = new SwivlChicoLight((IStateMachine)this.stateMachine);
+
+                lightControl = this.chicoLight as ILightControl;
+
+                if (!this.chicoLight.Start())
+                {
+                    // It is desired to block starting the service, but that prevents the installer completes
+                    // when the device is not installed. (vital=yes causes failure, vital=no becomes hung.)
+                    // As a workaround, service continues to start, but with error log message.
+                    Trace.TraceError("Failed to start up SwivlChico component. Service continues to run, but the device is not recognized without restart of the service.");
+                    lightControl = null;
+                    this.chicoLight = null;
+                }
+            }
             else
             {
                 throw new InvalidOperationException("Specified device type is not supported: " + Properties.Settings.Default.DeviceType);
@@ -93,6 +112,12 @@ namespace RRLightProgram
             {
                 this.delcomLight.Stop();
                 this.delcomLight = null;
+            }
+
+            if (this.chicoLight != null)
+            {
+                this.chicoLight.Stop();
+                this.chicoLight = null;
             }
 
             if (this.stateMachine != null)
