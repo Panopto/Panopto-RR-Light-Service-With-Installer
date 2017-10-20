@@ -580,6 +580,8 @@ namespace RRLightProgram
             this.transitionTable.Add(new Condition(State.PotentialRecording, Input.ButtonPressed), new Transition(this.ActionRequestOptIn, State.Recording)); // Opt-in
             this.transitionTable.Add(new Condition(State.PotentialRecording, Input.ButtonHeld), new Transition(this.ActionRequestStopAndDelete, State.TransitionRecordingToStop)); // Opt-out
             this.transitionTable.Add(new Condition(State.PotentialRecording, Input.OptInTimerElapsed), new Transition(this.ActionRequestStopAndDelete, State.TransitionRecordingToStop)); // Opt-out
+            this.transitionTable.Add(new Condition(State.PotentialRecording, Input.CommandStart), new Transition(this.ActionRequestOptIn, State.Recording)); // Opt-in
+            this.transitionTable.Add(new Condition(State.PotentialRecording, Input.CommandStop), new Transition(this.ActionRequestStopAndDelete, State.TransitionRecordingToStop)); // Opt-out
 
             this.transitionTable.Add(new Condition(State.Recording, Input.RecorderPreviewingNoNextSchedule), new Transition(this.ActionRespondPreviewing, State.PreviewingNoNextSchedule));
             this.transitionTable.Add(new Condition(State.Recording, Input.RecorderPreviewingWithNextSchedule), new Transition(this.ActionRespondPreviewing, State.PreviewingWithNextSchedule));
