@@ -21,7 +21,7 @@ namespace RRLightProgram
         void SetSolid(LightColor color);
 
         /// <summary>
-        /// Direct to flush the light the specified color.
+        /// Direct to flash the light the specified color.
         /// </summary>
         /// <param name="color">Color to be used. Cannot be Off.</param>
         void SetFlash(LightColor color);
