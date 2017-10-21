@@ -57,10 +57,13 @@ namespace RRLightProgram
             {
                 // Set up of Delcom light (with button) device.
                 this.delcomLight = new DelcomLight((IStateMachine)this.stateMachine);
-                
                 lightControl = this.delcomLight as ILightControl;
 
-                if (!this.delcomLight.Start())
+                if (this.delcomLight.Start())
+                {
+                    Trace.TraceInformation("Service started with Delcom light.");
+                }
+                else
                 {
                     // It is desired to block starting the service, but that prevents the installer completes
                     // when the device is not installed. (vital=yes causes failure, vital=no becomes hung.)
@@ -74,10 +77,13 @@ namespace RRLightProgram
             {
                 // Set up of SwivlChico light (with button) device.
                 this.chicoLight = new SwivlChicoLight((IStateMachine)this.stateMachine);
-
                 lightControl = this.chicoLight as ILightControl;
 
-                if (!this.chicoLight.Start())
+                if (this.chicoLight.Start())
+                {
+                    Trace.TraceInformation("Service started with Swivl Chico.");
+                }
+                else
                 {
                     // It is desired to block starting the service, but that prevents the installer completes
                     // when the device is not installed. (vital=yes causes failure, vital=no becomes hung.)

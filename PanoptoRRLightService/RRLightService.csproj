@@ -102,7 +102,6 @@
     <None Include="App.config">
       <SubType>Designer</SubType>
     </None>
-    <None Include="Delcom\DelcomDLL.dll" />
     <None Include="Properties\Settings.settings">
       <Generator>SettingsSingleFileGenerator</Generator>
       <LastGenOutput>Settings.Designer.cs</LastGenOutput>
@@ -138,13 +137,19 @@
     <None Include="ReferenceAssembly\RemoteRecorderAPI.dll" />
   </ItemGroup>
   <ItemGroup>
-    <Content Include="SwivlChico\chicntrl.dll" />
+    <ContentWithTargetPath Include="Delcom\DelcomDLL.dll">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <TargetPath>DelcomDLL.dll</TargetPath>
+    </ContentWithTargetPath>
+    <ContentWithTargetPath Include="SwivlChico\chicntrl.dll">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <TargetPath>chicntrl.dll</TargetPath>
+    </ContentWithTargetPath>
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <PropertyGroup>
-    <PostBuildEvent>copy /y "$(ProjectDir)Delcom\DelcomDLL.dll" "$(TargetDir)DelcomDLL.dll"
-copy /y "$(ProjectDir)SwivlChico\chicntrl.dll" "$(TargetDir)chicntrl.dll"
-</PostBuildEvent>
+    <PostBuildEvent>
+    </PostBuildEvent>
   </PropertyGroup>
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
        Other similar extension points exist, see Microsoft.Common.targets.
