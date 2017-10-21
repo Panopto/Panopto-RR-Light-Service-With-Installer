@@ -29,8 +29,8 @@ Input is limited to the following simple commands:
 
 Command | Description
 --------|------------------------------------------
-START   | If a recording is queued, start it now. Otherwise start recording a new session.
-STOP    | Stop the current recording
+START   | Opt-in to a "Potential Recording", immediately start a queued recording, or start recording a new session.
+STOP    | Stop the current recording, or opt-out (and delete) if this is a "Potential Recording"
 PAUSE   | Pause the current recording
 RESUME  | Resume the current (paused) recording
 EXTEND  | Extend the current recording by 5 minutes
@@ -69,6 +69,7 @@ None                               | An empty event
 RecorderPreviewingNoNextSchedule   | Remote Recorder is previewing
 RecorderPreviewingWithNextSchedule | Remote Recorder is previewing, and a recording is queued
 RecorderRecording                  | Remote Recorder is recording
+RecorderStartedPotentialRecording  | Remote Recorder has started a "Potential Recording"
 RecorderPaused                     | Remote Recorder is paused
 RecorderStopped                    | Remote Recorder is stopped
 RecorderDormant                    | Remote Recorder is blocked, i.e. the local recorder is Running
@@ -78,6 +79,7 @@ ButtonPressed                      | Button pressed for less time than the hold 
 ButtonHeld                         | Button held down for longer than the hold threshold
 ButtonDown                         | Button is pressed down
 ButtonUp                           | Button is released
+OptInTimerElapsed                  | The opt-in timer for a "Potential Recording" has elapsed
 CommandStart                       | A START command was issued
 CommandStop                        | A STOP command was issued
 CommandPause                       | A PAUSE command was issued
@@ -117,8 +119,10 @@ Init                       | Service is initializing, Remote Recorder state unkn
 PreviewingNoNextSchedule   | Previewing (Idle)
 PreviewingWithNextSchedule | Previewing, a recording is queued to start within the next hour
 TransitionAnyToRecording   | Paused or Previewing, attempting to Resume/Start Recording
+PotentialRecording         | Recording a "Potential Recording"
 Recording                  | Recording
 TransitionRecordingToPause | Recording, attempting to Pause
+TransitionPausedToRecording| Paused, attempting to resume Recording
 Paused                     | Paused
 TransitionPausedToStop     | Paused, attempting to Stop
 TransitionRecordingToStop  | Recording, attempting to Stop
