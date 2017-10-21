@@ -18,7 +18,7 @@
       <Value Profile="(Default)">False</Value>
     </Setting>
     <Setting Name="DeviceType" Type="System.String" Scope="Application">
-      <Value Profile="(Default)">SwivlChico</Value>
+      <Value Profile="(Default)">Delcom</Value>
     </Setting>
     <Setting Name="OptInTimeout" Type="System.TimeSpan" Scope="Application">
       <Value Profile="(Default)">00:05:00</Value>

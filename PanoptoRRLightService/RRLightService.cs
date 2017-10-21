@@ -53,7 +53,7 @@ namespace RRLightProgram
 
             this.remoteRecorderSync = new RemoteRecorderSync((IStateMachine)this.stateMachine);
 
-            if (string.Compare(Properties.Settings.Default.DeviceType, "Delcom", StringComparison.OrdinalIgnoreCase) == 0)
+            if (string.Equals(Properties.Settings.Default.DeviceType, "Delcom", StringComparison.OrdinalIgnoreCase))
             {
                 // Set up of Delcom light (with button) device.
                 this.delcomLight = new DelcomLight((IStateMachine)this.stateMachine);
@@ -70,8 +70,7 @@ namespace RRLightProgram
                     this.delcomLight = null;
                 }
             }
-            // TODO: add here for device specific start up when another device type is added.
-            else if (string.Compare(Properties.Settings.Default.DeviceType, "SwivlChico", StringComparison.OrdinalIgnoreCase) == 0)
+            else if (string.Equals(Properties.Settings.Default.DeviceType, "SwivlChico", StringComparison.OrdinalIgnoreCase))
             {
                 // Set up of SwivlChico light (with button) device.
                 this.chicoLight = new SwivlChicoLight((IStateMachine)this.stateMachine);
@@ -88,6 +87,7 @@ namespace RRLightProgram
                     this.chicoLight = null;
                 }
             }
+            // TODO: add here for device specific start up when another device type is added.
             else
             {
                 throw new InvalidOperationException("Specified device type is not supported: " + Properties.Settings.Default.DeviceType);
