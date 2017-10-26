@@ -97,7 +97,7 @@ namespace RRLightProgram
 
         public void Output(String str)
         {
-            Trace.TraceInformation(DateTime.Now + ": Serial Tx: " + str);
+            TraceVerbose.Trace(DateTime.Now + ": Serial Tx: " + str);
             this.portObj.WriteLine(str);
         }
 
@@ -117,7 +117,7 @@ namespace RRLightProgram
                 string inputString = sp.ReadLine().TrimEnd('\r');
                 Command inputCommand;
 
-                Trace.TraceInformation(DateTime.Now + ": Serial Rx: " + inputString);
+                TraceVerbose.Trace(DateTime.Now + ": Serial Rx: " + inputString);
 
                 //Fire the command event.
                 if (Enum.TryParse(inputString, true, out inputCommand))
