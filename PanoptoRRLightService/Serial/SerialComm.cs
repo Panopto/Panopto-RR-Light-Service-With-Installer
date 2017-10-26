@@ -68,7 +68,7 @@ namespace RRLightProgram
 
                 portObj.Open();
 
-                Trace.TraceInformation(DateTime.Now + ": Opened serial port {0}",
+                Trace.TraceInformation("Opened serial port {0}",
                     Properties.Settings.Default.SerialPortName);
             }
             catch (ApplicationException e)
@@ -97,7 +97,7 @@ namespace RRLightProgram
 
         public void Output(String str)
         {
-            TraceVerbose.Trace(DateTime.Now + ": Serial Tx: " + str);
+            TraceVerbose.Trace("Serial Tx: " + str);
             this.portObj.WriteLine(str);
         }
 
@@ -117,7 +117,7 @@ namespace RRLightProgram
                 string inputString = sp.ReadLine().TrimEnd('\r');
                 Command inputCommand;
 
-                TraceVerbose.Trace(DateTime.Now + ": Serial Rx: " + inputString);
+                TraceVerbose.Trace("Serial Rx: " + inputString);
 
                 //Fire the command event.
                 if (Enum.TryParse(inputString, true, out inputCommand))
@@ -143,14 +143,14 @@ namespace RRLightProgram
                             this.OutputStatus(inputString);
                             break;
                         default:
-                            Trace.TraceError(DateTime.Now + ": Serial: Unhandled command '{0}'", inputString);
+                            Trace.TraceError("Serial: Unhandled command '{0}'", inputString);
                             this.Output("Error: Unhandled console command: " + inputString);
                             break;
                     }
                 }
                 else
                 {
-                    Trace.TraceInformation(DateTime.Now + ": Serial: Command '{0}' not found", inputString);
+                    Trace.TraceInformation("Serial: Command '{0}' not found", inputString);
                     this.Output("Serial-Error: Command not found: " + inputString);
                 }
             }
