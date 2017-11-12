@@ -94,5 +94,14 @@ namespace RRLightProgram.Properties {
                 return ((bool)(this["RequireOptInForRecording"]));
             }
         }
+        
+        [global::System.Configuration.ApplicationScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("00:00:00.0100000")]
+        public global::System.TimeSpan SwivlChicoButtonPollingInterval {
+            get {
+                return ((global::System.TimeSpan)(this["SwivlChicoButtonPollingInterval"]));
+            }
+        }
     }
 }

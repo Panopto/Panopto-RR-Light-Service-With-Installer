@@ -26,5 +26,8 @@
     <Setting Name="RequireOptInForRecording" Type="System.Boolean" Scope="Application">
       <Value Profile="(Default)">False</Value>
     </Setting>
+    <Setting Name="SwivlChicoButtonPollingInterval" Type="System.TimeSpan" Scope="Application">
+      <Value Profile="(Default)">00:00:00.0100000</Value>
+    </Setting>
   </Settings>
 </SettingsFile>
