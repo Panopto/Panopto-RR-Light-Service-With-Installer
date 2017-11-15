@@ -97,6 +97,15 @@ namespace RRLightProgram.Properties {
         
         [global::System.Configuration.ApplicationScopedSettingAttribute()]
         [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("00:00:00.0100000")]
+        public global::System.TimeSpan SwivlChicoButtonPollingInterval {
+            get {
+                return ((global::System.TimeSpan)(this["SwivlChicoButtonPollingInterval"]));
+            }
+        }
+        
+        [global::System.Configuration.ApplicationScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
         [global::System.Configuration.DefaultSettingValueAttribute("")]
         public string SerialPortName {
             get {

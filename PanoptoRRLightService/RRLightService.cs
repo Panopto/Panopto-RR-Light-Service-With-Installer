@@ -20,6 +20,7 @@ namespace RRLightProgram
         private RemoteRecorderSync remoteRecorderSync = null;
 
         private DelcomLight delcomLight = null;
+        private SwivlChicoLight chicoLight = null;
 
         private SerialComm serialComm = null;
 
@@ -55,13 +56,17 @@ namespace RRLightProgram
 
             this.remoteRecorderSync = new RemoteRecorderSync((IStateMachine)this.stateMachine);
 
-            if (string.Compare(Properties.Settings.Default.DeviceType, "Delcom", StringComparison.OrdinalIgnoreCase) == 0)
+            if (string.Equals(Properties.Settings.Default.DeviceType, "Delcom", StringComparison.OrdinalIgnoreCase))
             {
                 // Set up of Delcom light (with button) device.
                 this.delcomLight = new DelcomLight((IStateMachine)this.stateMachine);
                 lightControl = this.delcomLight as ILightControl;
 
-                if (!this.delcomLight.Start())
+                if (this.delcomLight.Start())
+                {
+                    Trace.TraceInformation("Service started with Delcom light.");
+                }
+                else
                 {
                     // It is desired to block starting the service, but that prevents the installer completes
                     // when the device is not installed. (vital=yes causes failure, vital=no becomes hung.)
@@ -69,6 +74,26 @@ namespace RRLightProgram
                     Trace.TraceError("Failed to start up Delcom Light component. Service continues to run, but the device is not recognized without restart of the service.");
                     lightControl = null;
                     this.delcomLight = null;
+                }
+            }
+            else if (string.Equals(Properties.Settings.Default.DeviceType, "SwivlChico", StringComparison.OrdinalIgnoreCase))
+            {
+                // Set up of SwivlChico light (with button) device.
+                this.chicoLight = new SwivlChicoLight((IStateMachine)this.stateMachine);
+                lightControl = this.chicoLight as ILightControl;
+
+                if (this.chicoLight.Start())
+                {
+                    Trace.TraceInformation("Service started with Swivl Chico.");
+                }
+                else
+                {
+                    // It is desired to block starting the service, but that prevents the installer completes
+                    // when the device is not installed. (vital=yes causes failure, vital=no becomes hung.)
+                    // As a workaround, service continues to start, but with error log message.
+                    Trace.TraceError("Failed to start up SwivlChico component. Service continues to run, but the device is not recognized without restart of the service.");
+                    lightControl = null;
+                    this.chicoLight = null;
                 }
             }
             // TODO: add here for device specific start up when another device type is added.
@@ -109,6 +134,12 @@ namespace RRLightProgram
             {
                 this.delcomLight.Stop();
                 this.delcomLight = null;
+            }
+
+            if (this.chicoLight != null)
+            {
+                this.chicoLight.Stop();
+                this.chicoLight = null;
             }
 
             if (this.serialComm != null)

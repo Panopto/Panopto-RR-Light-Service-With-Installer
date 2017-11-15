@@ -13,7 +13,14 @@ namespace RRLightProgram
     {
         #region Variables
 
-        private const string RemoteRecorderServiceName = "Panopto Remote Recorder Service";
+        /// <summary>
+        /// Service name of Remote Recorder service. This is not Display Name, i.e. unique regardless of langauges.
+        /// </summary>
+        private const string RemoteRecorderServiceName = "PanoptoRemoteRecorderService";
+
+        /// <summary>
+        /// Process name of Remote Recorder service.
+        /// </summary>
         private const string RemoteRecorderProcessName = "RemoteRecorder";
 
         /// <summary>

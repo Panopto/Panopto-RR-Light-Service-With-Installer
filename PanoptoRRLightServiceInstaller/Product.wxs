@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<Wix xmlns="http://schemas.microsoft.com/wix/2006/wi">
-  <Product Id="*" Name="Panopto RR Light Service" Language="1033" Version="2.2.0.0" Manufacturer="Panopto" UpgradeCode="48dc066c-97cc-4512-8fa3-52bbe195e075">
+<Wix xmlns="http://schemas.microsoft.com/wix/2006/wi"
+     xmlns:util="http://schemas.microsoft.com/wix/UtilExtension">
+  <Product Id="*" Name="Panopto RR Light Service" Language="1033" Version="2.3.0.0" Manufacturer="Panopto" UpgradeCode="48dc066c-97cc-4512-8fa3-52bbe195e075">
     <Package InstallerVersion="200" Compressed="yes" InstallScope="perMachine" />
 
     <!-- AllowSameVersionUpgrades is desired for development iteration. This causes ICE61 warning, but it may be ignored. -->
@@ -10,15 +11,27 @@
     <Feature Id="ProductFeature" Title="Panopto RR Light Service" Level="1">
       <ComponentGroupRef Id="ProductComponents" />
     </Feature>
-  </Product>
 
-  <Fragment>
     <Directory Id="TARGETDIR" Name="SourceDir">
       <Directory Id="ProgramFilesFolder">
         <Directory Id="INSTALLFOLDER" Name="Panopto RR Light Service" />
       </Directory>
     </Directory>
-  </Fragment>
+
+    <Property Id="DEVICE_TYPE" Value="Delcom"/>
+
+    <!-- UI sequnece to use custom welcome dialog.
+         This uses InstallDir sequence as a base,
+         but welcome dialog is replaced (see CustomWelcomeDlg.wxs)
+         and license and directory dialogs are skipped. -->
+    <Property Id="WIXUI_INSTALLDIR" Value="INSTALLFOLDER" />
+    <UIRef Id="WixUI_InstallDir" />
+    <UI>
+      <DialogRef Id="CustomWelcomeDlg"/>
+      <Publish Dialog="CustomWelcomeDlg" Control="Next" Event="NewDialog" Value="VerifyReadyDlg">1</Publish>
+      <Publish Dialog="VerifyReadyDlg" Control="Back" Event="NewDialog" Value="CustomWelcomeDlg">1</Publish>
+    </UI>
+  </Product>
 
   <Fragment>
     <ComponentGroup Id="ProductComponents" Directory="INSTALLFOLDER">
@@ -28,8 +41,18 @@
       <Component Id="DelcomDLL.dll" Guid="4C511B72-823E-4B97-B727-8C5FA2DF8DE5">
         <File Id="DelcomDLL.dll" Name="DelcomDLL.dll" Source="..\PanoptoRRLightService\bin\x86\Release\DelcomDLL.dll" Vital="yes" KeyPath="no" DiskId="1"/>
       </Component>
+      <Component Id="chicntrl.dll" Guid="A6F8B4CC-7F61-49E3-831B-17A91B5D1ECF">
+        <File Id="chicntrl.dll" Name="chicntrl.dll" Source="..\PanoptoRRLightService\bin\x86\Release\chicntrl.dll" Vital="yes" KeyPath="no" DiskId="1"/>
+      </Component>
       <Component Id="RRLightService.exe.config" Guid="6FB4306E-5C36-4A96-BF02-324AA4C5B694">
         <File Id="RRLightService.exe.config" Name="RRLightService.exe.config" Source="..\PanoptoRRLightService\bin\x86\Release\RRLightService.exe.config" Vital="yes" KeyPath="no" DiskId="1"/>
+        <util:XmlFile Id="UpdateDeviceType"
+                      Action="setValue"
+                      File="[INSTALLFOLDER]\RRLightService.exe.config"
+                      SelectionLanguage="XPath"
+                      Permanent="yes"
+                      ElementPath="/configuration/applicationSettings//setting[\[]@name='DeviceType'[\]]/value"
+                      Value="[DEVICE_TYPE]"/>
       </Component>
       <Component Id="ProductComponent" Guid="ACCCBD4F-D927-4F17-A130-BE334FF138B7">
         <File Id="RRLightService.exe" Name="RRLightService.exe" Source="..\PanoptoRRLightService\bin\x86\Release\RRLightService.exe" Vital="yes" KeyPath="yes" DiskId="1"/>
@@ -49,7 +72,6 @@
         </ServiceInstall>
         <ServiceControl Id="StartService" Start="install" Stop="both" Remove="uninstall" Name="PanoptoRRLightService" Wait="yes" />
       </Component>
-
     </ComponentGroup>
   </Fragment>
 </Wix>
