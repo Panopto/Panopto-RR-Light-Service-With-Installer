@@ -106,7 +106,7 @@ namespace RRLightProgram.Properties {
         
         [global::System.Configuration.ApplicationScopedSettingAttribute()]
         [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
-        [global::System.Configuration.DefaultSettingValueAttribute("")]
+        [global::System.Configuration.DefaultSettingValueAttribute("COM4")]
         public string SerialPortName {
             get {
                 return ((string)(this["SerialPortName"]));

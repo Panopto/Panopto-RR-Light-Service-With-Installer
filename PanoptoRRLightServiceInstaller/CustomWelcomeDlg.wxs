@@ -8,6 +8,7 @@
       <ComboBox Property="DEVICE_TYPE">
         <ListItem Value="Delcom"/>
         <ListItem Value="SwivlChico"/>
+        <ListItem Value="Serial"/>
       </ComboBox>
 
       <Dialog Id="CustomWelcomeDlg" Width="370" Height="270" Title="!(loc.WelcomeDlg_Title)">

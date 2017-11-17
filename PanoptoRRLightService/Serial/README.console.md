@@ -3,7 +3,7 @@
 ## Serial Communication
 
 ### Configuration
-Serial communication will not work without configuration. Copy RRLightService.exe.config to the install directory, and enter the appropriate values. e.g.:
+Select Serial as the installer option. Set the appropriate values in RRLightService.exe.config in the install directory. e.g.:
 
 ````
             <setting name="SerialPortName" serializeAs="String">

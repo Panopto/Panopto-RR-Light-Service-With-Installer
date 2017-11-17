@@ -58,10 +58,10 @@ namespace RRLightProgram
         private Timer optInTimer;
 
         /// <summary>
-        /// Interface for console I/O.
+        /// Interface to receive the result of input operation.
         /// This cannot be null. Empty implementation is attached if the caller does not pass it.
         /// </summary>
-        private IConsole console;
+        private IInputResultReceiver resultReceiver;
 
         #endregion Variables
 
@@ -80,8 +80,8 @@ namespace RRLightProgram
         /// </summary>
         /// <param name="remoteRecorder">Remote recorder controller. Cannot be null.</param>
         /// <param name="lightControl">Light control interface. May be null.</param>
-        /// <param name="console">Console interface. May be null.</param>
-        public void Start(RemoteRecorderSync remoteRecorder, ILightControl lightControl, IConsole console)
+        /// <param name="resultReceiver">Result receiver interface. May be null.</param>
+        public void Start(RemoteRecorderSync remoteRecorder, ILightControl lightControl, IInputResultReceiver resultReceiver)
         {
             if (remoteRecorder == null)
             {
@@ -94,7 +94,7 @@ namespace RRLightProgram
 
             this.remoteRecorder = remoteRecorder;
             this.light = lightControl ?? new EmptyLightControl();
-            this.console = console ?? new EmptyConsole();
+            this.resultReceiver = resultReceiver ?? new EmptyConsole();
 
             this.inputProcessThread = new Thread(this.InputProcessLoop);
             TraceVerbose.Trace("State machine is starting.");
@@ -191,18 +191,18 @@ namespace RRLightProgram
                     if (transition.ActionMethod(input))
                     {
                         this.state = transition.NextState;
-                        this.console.Output(input.ToString() + " OK");
+                        this.resultReceiver.OnInputProcessed(input, Result.Success);
                     }
                     else
                     {
                         Trace.TraceError("{0} failed. State stays at {1}", transition.ActionMethod.Method.Name, this.state);
-                        this.console.Output(input.ToString() + " Error");
+                        this.resultReceiver.OnInputProcessed(input, Result.Failure);
                     }
                 }
                 else
                 {
                     TraceVerbose.Trace("No transition for Input:{0} State:{1})", input, this.state);
-                    this.console.Output(input.ToString() + " Ignored");
+                    this.resultReceiver.OnInputProcessed(input, Result.Ignored);
                 }
             }
         }
@@ -686,13 +686,13 @@ namespace RRLightProgram
 
         #endregion Empty ILightControl
 
-        #region Empty IConsole
+        #region Empty IInputResultReceiver
 
-        class EmptyConsole : IConsole
+        class EmptyConsole : IInputResultReceiver
         {
-            public void Output(String str) { }
+            public void OnInputProcessed(Input input, Result result) { }
         }
 
-        #endregion Empty IConsole
+        #endregion Empty IInputResultReceiver
     }
 }

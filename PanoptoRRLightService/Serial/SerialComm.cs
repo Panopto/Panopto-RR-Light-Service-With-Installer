@@ -4,7 +4,7 @@ using System.IO.Ports;
 
 namespace RRLightProgram
 {
-    public class SerialComm : IConsole
+    public class SerialComm : IInputResultReceiver
     {
         #region Variables
 
@@ -93,12 +93,23 @@ namespace RRLightProgram
 
         #endregion
 
-        #region IConsole
+        #region IInputResultReceiver
 
-        public void Output(String str)
+        public void OnInputProcessed(Input input, Result result)
         {
-            TraceVerbose.Trace("Serial Tx: " + str);
-            this.portObj.WriteLine(str);
+            // Convert input + result into outgoing serial string.
+            if (result == Result.Success)
+            {
+                this.Output(input.ToString() + " OK");
+            }
+            else if (result == Result.Failure)
+            {
+                this.Output(input.ToString() + " Error");
+            }
+            else if (result == Result.Ignored)
+            {
+                this.Output(input.ToString() + " Ignored");
+            }
         }
 
         #endregion
@@ -157,6 +168,12 @@ namespace RRLightProgram
         }
 
         #endregion
+
+        private void Output(String str)
+        {
+            TraceVerbose.Trace("Serial Tx: " + str);
+            this.portObj.WriteLine(str);
+        }
 
         private void OutputStatus(string inputCommand)
         {

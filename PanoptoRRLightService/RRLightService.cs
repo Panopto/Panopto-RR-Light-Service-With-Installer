@@ -21,7 +21,6 @@ namespace RRLightProgram
 
         private DelcomLight delcomLight = null;
         private SwivlChicoLight chicoLight = null;
-
         private SerialComm serialComm = null;
 
         /// <summary>
@@ -50,7 +49,7 @@ namespace RRLightProgram
             EnsureCertificateValidation();
 
             ILightControl lightControl = null;
-            IConsole console = null;
+            IInputResultReceiver resultReceiver = null;
 
             this.stateMachine = new StateMachine();
 
@@ -96,17 +95,11 @@ namespace RRLightProgram
                     this.chicoLight = null;
                 }
             }
-            // TODO: add here for device specific start up when another device type is added.
-            else
-            {
-                throw new InvalidOperationException("Specified device type is not supported: " + Properties.Settings.Default.DeviceType);
-            }
-
-            if (!string.IsNullOrWhiteSpace(Properties.Settings.Default.SerialPortName))
+            else if (string.Equals(Properties.Settings.Default.DeviceType, "Serial", StringComparison.OrdinalIgnoreCase))
             {
                 // Set up serial port
                 this.serialComm = new SerialComm((IStateMachine)this.stateMachine);
-                console = this.serialComm as IConsole;
+                resultReceiver = this.serialComm as IInputResultReceiver;
 
                 if (!this.serialComm.Start(this.remoteRecorderSync))
                 {
@@ -114,9 +107,14 @@ namespace RRLightProgram
                     throw new ApplicationException("Failed to start up Serial component. Terminate.");
                 }
             }
+            // TODO: add here for device specific start up when another device type is added.
+            else
+            {
+                throw new InvalidOperationException("Specified device type is not supported: " + Properties.Settings.Default.DeviceType);
+            }
 
             // Start processing of the state machine.
-            this.stateMachine.Start(this.remoteRecorderSync, lightControl, console);
+            this.stateMachine.Start(this.remoteRecorderSync, lightControl, resultReceiver);
         }
 
         /// <summary>
