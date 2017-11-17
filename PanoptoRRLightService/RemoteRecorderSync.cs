@@ -282,6 +282,77 @@ namespace RRLightProgram
             return result;
         }
 
+        /// <summary>
+        /// Extend the current recording
+        /// </summary>
+        /// <returns>true on success</returns>
+        public bool ExtendCurrentRecording()
+        {
+            bool result = false;
+
+            try
+            {
+                RemoteRecorderState state = this.controller.GetCurrentState();
+                if (state.CurrentRecording != null)
+                {
+                    if (state.Status != RemoteRecorderStatus.Stopped)
+                    {
+                        result = this.controller.ExtendCurrentRecording(state.CurrentRecording.Id);
+                        if (!result)
+                        {
+                            Trace.TraceWarning("ExtendCurrentRecording failed.");
+                        }
+                    }
+                }
+            }
+            catch (Exception e)
+            {
+                this.HandleRRException(e, false);
+            }
+
+            return result;
+        }
+
+        /// <summary>
+        /// Get current recording data
+        /// </summary>
+        /// <returns>Recording object</returns>
+        public Recording GetCurrentRecording()
+        {
+            Recording recordingData = null;
+            try
+            {
+                recordingData = this.controller.GetCurrentState().CurrentRecording;
+
+            }
+            catch (Exception e)
+            {
+                this.HandleRRException(e, false);
+            }
+
+            return recordingData;
+        }
+
+        /// <summary>
+        /// Get next recording data
+        /// </summary>
+        /// <returns>Recording object</returns>
+        public Recording GetNextRecording()
+        {
+            Recording recordingData = null;
+            try
+            {
+                recordingData = this.controller.GetNextRecording();
+
+            }
+            catch (Exception e)
+            {
+                this.HandleRRException(e, false);
+            }
+
+            return recordingData;
+        }
+
         #endregion Public methods to take action against Remote Recorder
 
         #region Helper methods

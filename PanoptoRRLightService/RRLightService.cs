@@ -22,6 +22,8 @@ namespace RRLightProgram
         private DelcomLight delcomLight = null;
         private SwivlChicoLight chicoLight = null;
 
+        private SerialComm serialComm = null;
+
         /// <summary>
         /// Constrocutor.
         /// </summary>
@@ -48,6 +50,7 @@ namespace RRLightProgram
             EnsureCertificateValidation();
 
             ILightControl lightControl = null;
+            IConsole console = null;
 
             this.stateMachine = new StateMachine();
 
@@ -99,8 +102,21 @@ namespace RRLightProgram
                 throw new InvalidOperationException("Specified device type is not supported: " + Properties.Settings.Default.DeviceType);
             }
 
+            if (!string.IsNullOrWhiteSpace(Properties.Settings.Default.SerialPortName))
+            {
+                // Set up serial port
+                this.serialComm = new SerialComm((IStateMachine)this.stateMachine);
+                console = this.serialComm as IConsole;
+
+                if (!this.serialComm.Start(this.remoteRecorderSync))
+                {
+                    Trace.TraceError("Failed to start up Serial component. Terminate.");
+                    throw new ApplicationException("Failed to start up Serial component. Terminate.");
+                }
+            }
+
             // Start processing of the state machine.
-            this.stateMachine.Start(this.remoteRecorderSync, lightControl);
+            this.stateMachine.Start(this.remoteRecorderSync, lightControl, console);
         }
 
         /// <summary>
@@ -124,6 +140,12 @@ namespace RRLightProgram
             {
                 this.chicoLight.Stop();
                 this.chicoLight = null;
+            }
+
+            if (this.serialComm != null)
+            {
+                this.serialComm.Stop();
+                this.serialComm = null;
             }
 
             if (this.stateMachine != null)

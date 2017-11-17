@@ -97,5 +97,30 @@ namespace RRLightProgram
         /// The opt-in timer we previously setup has elapsed
         /// </summary>
         OptInTimerElapsed,
+
+        /// <summary>
+        /// Start recording.
+        /// </summary>
+        CommandStart,
+
+        /// <summary>
+        /// Stop recording.
+        /// </summary>
+        CommandStop,
+
+        /// <summary>
+        /// Pause recording.
+        /// </summary>
+        CommandPause,
+
+        /// <summary>
+        /// Resume recording.
+        /// </summary>
+        CommandResume,
+
+        /// <summary>
+        /// Extend recording.
+        /// </summary>
+        CommandExtend,
     }
 }
