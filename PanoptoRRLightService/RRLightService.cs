@@ -21,6 +21,7 @@ namespace RRLightProgram
 
         private DelcomLight delcomLight = null;
         private SwivlChicoLight chicoLight = null;
+        private SerialComm serialComm = null;
 
         /// <summary>
         /// Constrocutor.
@@ -48,6 +49,7 @@ namespace RRLightProgram
             EnsureCertificateValidation();
 
             ILightControl lightControl = null;
+            IInputResultReceiver resultReceiver = null;
 
             this.stateMachine = new StateMachine();
 
@@ -93,6 +95,18 @@ namespace RRLightProgram
                     this.chicoLight = null;
                 }
             }
+            else if (string.Equals(Properties.Settings.Default.DeviceType, "Serial", StringComparison.OrdinalIgnoreCase))
+            {
+                // Set up serial port
+                this.serialComm = new SerialComm((IStateMachine)this.stateMachine);
+                resultReceiver = this.serialComm as IInputResultReceiver;
+
+                if (!this.serialComm.Start(this.remoteRecorderSync))
+                {
+                    Trace.TraceError("Failed to start up Serial component. Terminate.");
+                    throw new ApplicationException("Failed to start up Serial component. Terminate.");
+                }
+            }
             // TODO: add here for device specific start up when another device type is added.
             else
             {
@@ -100,7 +114,7 @@ namespace RRLightProgram
             }
 
             // Start processing of the state machine.
-            this.stateMachine.Start(this.remoteRecorderSync, lightControl);
+            this.stateMachine.Start(this.remoteRecorderSync, lightControl, resultReceiver);
         }
 
         /// <summary>
@@ -124,6 +138,12 @@ namespace RRLightProgram
             {
                 this.chicoLight.Stop();
                 this.chicoLight = null;
+            }
+
+            if (this.serialComm != null)
+            {
+                this.serialComm.Stop();
+                this.serialComm = null;
             }
 
             if (this.stateMachine != null)
