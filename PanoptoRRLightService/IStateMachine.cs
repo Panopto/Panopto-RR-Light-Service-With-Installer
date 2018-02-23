@@ -41,7 +41,8 @@ namespace RRLightProgram
         Paused,
         TransitionPausedToStop,
         TransitionRecordingToStop,
-        Stopped,
+        StoppedNoNextSchedule,
+        StoppedWithNextSchedule,
         Dormant,
         Faulted,
         Disconnected,
@@ -59,7 +60,8 @@ namespace RRLightProgram
         RecorderRecording,
         RecorderStartedPotentialRecording,
         RecorderPaused,
-        RecorderStopped,
+        RecorderStoppedNoNextSchedule,
+        RecorderStoppedWithNextSchedule,
 
         /// <summary>
         /// Recorder may be in a state that is running, but not recording or previewing.
