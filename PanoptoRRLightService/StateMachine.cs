@@ -529,7 +529,8 @@ namespace RRLightProgram
             this.transitionTable.Add(new Condition(State.Init, Input.RecorderRecording), new Transition(this.ActionRespondRecording, State.Recording));
             this.transitionTable.Add(new Condition(State.Init, Input.RecorderStartedPotentialRecording), new Transition(this.ActionRespondPotentialRecording, State.PotentialRecording));
             this.transitionTable.Add(new Condition(State.Init, Input.RecorderPaused), new Transition(this.ActionRespondPaused, State.Paused));
-            this.transitionTable.Add(new Condition(State.Init, Input.RecorderStopped), new Transition(this.ActionRespondStopped, State.Stopped));
+            this.transitionTable.Add(new Condition(State.Init, Input.RecorderStoppedNoNextSchedule), new Transition(this.ActionRespondStopped, State.StoppedNoNextSchedule));
+            this.transitionTable.Add(new Condition(State.Init, Input.RecorderStoppedWithNextSchedule), new Transition(this.ActionRespondStopped, State.StoppedWithNextSchedule));
             this.transitionTable.Add(new Condition(State.Init, Input.RecorderDormant), new Transition(this.ActionRespondDormant, State.Dormant));
             this.transitionTable.Add(new Condition(State.Init, Input.RecorderFaulted), new Transition(this.ActionRespondFaultedOrDisconnected, State.Faulted));
             this.transitionTable.Add(new Condition(State.Init, Input.RecorderDisconnected), new Transition(this.ActionRespondFaultedOrDisconnected, State.Disconnected));
@@ -538,7 +539,8 @@ namespace RRLightProgram
             this.transitionTable.Add(new Condition(State.PreviewingNoNextSchedule, Input.RecorderRecording), new Transition(this.ActionRespondRecording, State.Recording));
             this.transitionTable.Add(new Condition(State.PreviewingNoNextSchedule, Input.RecorderStartedPotentialRecording), new Transition(this.ActionRespondPotentialRecording, State.PotentialRecording));
             this.transitionTable.Add(new Condition(State.PreviewingNoNextSchedule, Input.RecorderPaused), new Transition(this.ActionRespondPaused, State.Paused));
-            this.transitionTable.Add(new Condition(State.PreviewingNoNextSchedule, Input.RecorderStopped), new Transition(this.ActionRespondStopped, State.Stopped));
+            this.transitionTable.Add(new Condition(State.PreviewingNoNextSchedule, Input.RecorderStoppedNoNextSchedule), new Transition(this.ActionRespondStopped, State.StoppedNoNextSchedule));
+            this.transitionTable.Add(new Condition(State.PreviewingNoNextSchedule, Input.RecorderStoppedWithNextSchedule), new Transition(this.ActionRespondStopped, State.StoppedWithNextSchedule));
             this.transitionTable.Add(new Condition(State.PreviewingNoNextSchedule, Input.RecorderDormant), new Transition(this.ActionRespondDormant, State.Dormant));
             this.transitionTable.Add(new Condition(State.PreviewingNoNextSchedule, Input.RecorderFaulted), new Transition(this.ActionRespondFaultedOrDisconnected, State.Faulted));
             this.transitionTable.Add(new Condition(State.PreviewingNoNextSchedule, Input.RecorderDisconnected), new Transition(this.ActionRespondFaultedOrDisconnected, State.Disconnected));
@@ -548,7 +550,8 @@ namespace RRLightProgram
             this.transitionTable.Add(new Condition(State.PreviewingWithNextSchedule, Input.RecorderRecording), new Transition(this.ActionRespondRecording, State.Recording));
             this.transitionTable.Add(new Condition(State.PreviewingWithNextSchedule, Input.RecorderStartedPotentialRecording), new Transition(this.ActionRespondPotentialRecording, State.PotentialRecording));
             this.transitionTable.Add(new Condition(State.PreviewingWithNextSchedule, Input.RecorderPaused),new Transition(this.ActionRespondPaused, State.Paused));
-            this.transitionTable.Add(new Condition(State.PreviewingWithNextSchedule, Input.RecorderStopped), new Transition(this.ActionRespondStopped, State.Stopped));
+            this.transitionTable.Add(new Condition(State.PreviewingWithNextSchedule, Input.RecorderStoppedNoNextSchedule), new Transition(this.ActionRespondStopped, State.StoppedNoNextSchedule));
+            this.transitionTable.Add(new Condition(State.PreviewingWithNextSchedule, Input.RecorderStoppedWithNextSchedule), new Transition(this.ActionRespondStopped, State.StoppedWithNextSchedule));
             this.transitionTable.Add(new Condition(State.PreviewingWithNextSchedule, Input.RecorderDormant), new Transition(this.ActionRespondDormant, State.Dormant));
             this.transitionTable.Add(new Condition(State.PreviewingWithNextSchedule, Input.RecorderFaulted), new Transition(this.ActionRespondFaultedOrDisconnected, State.Faulted));
             this.transitionTable.Add(new Condition(State.PreviewingWithNextSchedule, Input.RecorderDisconnected), new Transition(this.ActionRespondFaultedOrDisconnected, State.Disconnected));
@@ -561,7 +564,8 @@ namespace RRLightProgram
             this.transitionTable.Add(new Condition(State.TransitionAnyToRecording, Input.RecorderRecording), new Transition(this.ActionRespondRecording, State.Recording));
             this.transitionTable.Add(new Condition(State.TransitionAnyToRecording, Input.RecorderStartedPotentialRecording), new Transition(this.ActionRespondPotentialRecording, State.PotentialRecording));
             this.transitionTable.Add(new Condition(State.TransitionAnyToRecording, Input.RecorderPaused), new Transition(this.ActionRespondPaused, State.Paused));
-            this.transitionTable.Add(new Condition(State.TransitionAnyToRecording, Input.RecorderStopped), new Transition(this.ActionRespondStopped, State.Stopped));
+            this.transitionTable.Add(new Condition(State.TransitionAnyToRecording, Input.RecorderStoppedNoNextSchedule), new Transition(this.ActionRespondStopped, State.StoppedNoNextSchedule));
+            this.transitionTable.Add(new Condition(State.TransitionAnyToRecording, Input.RecorderStoppedWithNextSchedule), new Transition(this.ActionRespondStopped, State.StoppedWithNextSchedule));
             this.transitionTable.Add(new Condition(State.TransitionAnyToRecording, Input.RecorderDormant), new Transition(this.ActionRespondDormant, State.Dormant));
             this.transitionTable.Add(new Condition(State.TransitionAnyToRecording, Input.RecorderFaulted), new Transition(this.ActionRespondFaultedOrDisconnected, State.Faulted));
             this.transitionTable.Add(new Condition(State.TransitionAnyToRecording, Input.RecorderDisconnected), new Transition(this.ActionRespondFaultedOrDisconnected, State.Disconnected));
@@ -573,7 +577,8 @@ namespace RRLightProgram
             this.transitionTable.Add(new Condition(State.PotentialRecording, Input.RecorderPreviewingNoNextSchedule), new Transition(this.ActionRespondPreviewing, State.PreviewingNoNextSchedule));
             this.transitionTable.Add(new Condition(State.PotentialRecording, Input.RecorderPreviewingWithNextSchedule), new Transition(this.ActionRespondPreviewing, State.PreviewingWithNextSchedule));
             this.transitionTable.Add(new Condition(State.PotentialRecording, Input.RecorderPaused), new Transition(this.ActionRespondPaused, State.Paused));
-            this.transitionTable.Add(new Condition(State.PotentialRecording, Input.RecorderStopped), new Transition(this.ActionRespondStopped, State.Stopped));
+            this.transitionTable.Add(new Condition(State.PotentialRecording, Input.RecorderStoppedNoNextSchedule), new Transition(this.ActionRespondStopped, State.StoppedNoNextSchedule));
+            this.transitionTable.Add(new Condition(State.PotentialRecording, Input.RecorderStoppedWithNextSchedule), new Transition(this.ActionRespondStopped, State.StoppedWithNextSchedule));
             this.transitionTable.Add(new Condition(State.PotentialRecording, Input.RecorderDormant), new Transition(this.ActionRespondDormant, State.Dormant));
             this.transitionTable.Add(new Condition(State.PotentialRecording, Input.RecorderFaulted), new Transition(this.ActionRespondFaultedOrDisconnected, State.Faulted));
             this.transitionTable.Add(new Condition(State.PotentialRecording, Input.RecorderDisconnected), new Transition(this.ActionRespondFaultedOrDisconnected, State.Disconnected));
@@ -586,7 +591,8 @@ namespace RRLightProgram
             this.transitionTable.Add(new Condition(State.Recording, Input.RecorderPreviewingNoNextSchedule), new Transition(this.ActionRespondPreviewing, State.PreviewingNoNextSchedule));
             this.transitionTable.Add(new Condition(State.Recording, Input.RecorderPreviewingWithNextSchedule), new Transition(this.ActionRespondPreviewing, State.PreviewingWithNextSchedule));
             this.transitionTable.Add(new Condition(State.Recording, Input.RecorderPaused), new Transition(this.ActionRespondPaused, State.Paused));
-            this.transitionTable.Add(new Condition(State.Recording, Input.RecorderStopped), new Transition(this.ActionRespondStopped, State.Stopped));
+            this.transitionTable.Add(new Condition(State.Recording, Input.RecorderStoppedNoNextSchedule), new Transition(this.ActionRespondStopped, State.StoppedNoNextSchedule));
+            this.transitionTable.Add(new Condition(State.Recording, Input.RecorderStoppedWithNextSchedule), new Transition(this.ActionRespondStopped, State.StoppedWithNextSchedule));
             this.transitionTable.Add(new Condition(State.Recording, Input.RecorderDormant), new Transition(this.ActionRespondDormant, State.Dormant));
             this.transitionTable.Add(new Condition(State.Recording, Input.RecorderFaulted), new Transition(this.ActionRespondFaultedOrDisconnected, State.Faulted));
             this.transitionTable.Add(new Condition(State.Recording, Input.RecorderDisconnected), new Transition(this.ActionRespondFaultedOrDisconnected, State.Disconnected));
@@ -600,7 +606,8 @@ namespace RRLightProgram
             this.transitionTable.Add(new Condition(State.TransitionRecordingToPause, Input.RecorderPreviewingWithNextSchedule), new Transition(this.ActionRespondPreviewing, State.PreviewingWithNextSchedule));
             this.transitionTable.Add(new Condition(State.TransitionRecordingToPause, Input.RecorderRecording), new Transition(this.ActionRespondRecording, State.Recording));
             this.transitionTable.Add(new Condition(State.TransitionRecordingToPause, Input.RecorderPaused), new Transition(this.ActionRespondPaused, State.Paused));
-            this.transitionTable.Add(new Condition(State.TransitionRecordingToPause, Input.RecorderStopped), new Transition(this.ActionRespondStopped, State.Stopped));
+            this.transitionTable.Add(new Condition(State.TransitionRecordingToPause, Input.RecorderStoppedNoNextSchedule), new Transition(this.ActionRespondStopped, State.StoppedNoNextSchedule));
+            this.transitionTable.Add(new Condition(State.TransitionRecordingToPause, Input.RecorderStoppedWithNextSchedule), new Transition(this.ActionRespondStopped, State.StoppedWithNextSchedule));
             this.transitionTable.Add(new Condition(State.TransitionRecordingToPause, Input.RecorderDormant), new Transition(this.ActionRespondDormant, State.Dormant));
             this.transitionTable.Add(new Condition(State.TransitionRecordingToPause, Input.RecorderFaulted), new Transition(this.ActionRespondFaultedOrDisconnected, State.Faulted));
             this.transitionTable.Add(new Condition(State.TransitionRecordingToPause, Input.RecorderDisconnected), new Transition(this.ActionRespondFaultedOrDisconnected, State.Disconnected));
@@ -609,7 +616,8 @@ namespace RRLightProgram
             this.transitionTable.Add(new Condition(State.Paused, Input.RecorderPreviewingWithNextSchedule), new Transition(this.ActionRespondPreviewing, State.PreviewingWithNextSchedule));
             this.transitionTable.Add(new Condition(State.Paused, Input.RecorderRecording), new Transition(this.ActionRespondRecording, State.Recording));
             this.transitionTable.Add(new Condition(State.Paused, Input.RecorderStartedPotentialRecording), new Transition(this.ActionRespondRecording, State.Recording)); // Consider all resumptions from pause to be already opted-in
-            this.transitionTable.Add(new Condition(State.Paused, Input.RecorderStopped), new Transition(this.ActionRespondStopped, State.Stopped));
+            this.transitionTable.Add(new Condition(State.Paused, Input.RecorderStoppedNoNextSchedule), new Transition(this.ActionRespondStopped, State.StoppedNoNextSchedule));
+            this.transitionTable.Add(new Condition(State.Paused, Input.RecorderStoppedWithNextSchedule), new Transition(this.ActionRespondStopped, State.StoppedWithNextSchedule));
             this.transitionTable.Add(new Condition(State.Paused, Input.RecorderDormant), new Transition(this.ActionRespondDormant, State.Dormant));
             this.transitionTable.Add(new Condition(State.Paused, Input.RecorderFaulted), new Transition(this.ActionRespondFaultedOrDisconnected, State.Faulted));
             this.transitionTable.Add(new Condition(State.Paused, Input.RecorderDisconnected), new Transition(this.ActionRespondFaultedOrDisconnected, State.Disconnected));
@@ -623,7 +631,8 @@ namespace RRLightProgram
             this.transitionTable.Add(new Condition(State.TransitionPausedToStop, Input.RecorderPreviewingWithNextSchedule), new Transition(this.ActionRespondPreviewing, State.PreviewingWithNextSchedule));
             this.transitionTable.Add(new Condition(State.TransitionPausedToStop, Input.RecorderRecording), new Transition(this.ActionRespondRecording, State.Recording));
             this.transitionTable.Add(new Condition(State.TransitionPausedToStop, Input.RecorderPaused), new Transition(this.ActionRespondPaused, State.Paused));
-            this.transitionTable.Add(new Condition(State.TransitionPausedToStop, Input.RecorderStopped), new Transition(this.ActionRespondStopped, State.Stopped));
+            this.transitionTable.Add(new Condition(State.TransitionPausedToStop, Input.RecorderStoppedNoNextSchedule), new Transition(this.ActionRespondStopped, State.StoppedNoNextSchedule));
+            this.transitionTable.Add(new Condition(State.TransitionPausedToStop, Input.RecorderStoppedWithNextSchedule), new Transition(this.ActionRespondStopped, State.StoppedWithNextSchedule));
             this.transitionTable.Add(new Condition(State.TransitionPausedToStop, Input.RecorderDormant), new Transition(this.ActionRespondDormant, State.Dormant));
             this.transitionTable.Add(new Condition(State.TransitionPausedToStop, Input.RecorderFaulted), new Transition(this.ActionRespondFaultedOrDisconnected, State.Faulted));
             this.transitionTable.Add(new Condition(State.TransitionPausedToStop, Input.RecorderDisconnected), new Transition(this.ActionRespondFaultedOrDisconnected, State.Disconnected));
@@ -632,26 +641,44 @@ namespace RRLightProgram
             this.transitionTable.Add(new Condition(State.TransitionRecordingToStop, Input.RecorderPreviewingWithNextSchedule), new Transition(this.ActionRespondPreviewing, State.PreviewingWithNextSchedule));
             this.transitionTable.Add(new Condition(State.TransitionRecordingToStop, Input.RecorderRecording), new Transition(this.ActionRespondRecording, State.Recording));
             this.transitionTable.Add(new Condition(State.TransitionRecordingToStop, Input.RecorderPaused), new Transition(this.ActionRespondPaused, State.Paused));
-            this.transitionTable.Add(new Condition(State.TransitionRecordingToStop, Input.RecorderStopped), new Transition(this.ActionRespondStopped, State.Stopped));
+            this.transitionTable.Add(new Condition(State.TransitionRecordingToStop, Input.RecorderStoppedNoNextSchedule), new Transition(this.ActionRespondStopped, State.StoppedNoNextSchedule));
+            this.transitionTable.Add(new Condition(State.TransitionRecordingToStop, Input.RecorderStoppedWithNextSchedule), new Transition(this.ActionRespondStopped, State.StoppedWithNextSchedule));
             this.transitionTable.Add(new Condition(State.TransitionRecordingToStop, Input.RecorderDormant), new Transition(this.ActionRespondDormant, State.Dormant));
             this.transitionTable.Add(new Condition(State.TransitionRecordingToStop, Input.RecorderFaulted), new Transition(this.ActionRespondFaultedOrDisconnected, State.Faulted));
             this.transitionTable.Add(new Condition(State.TransitionRecordingToStop, Input.RecorderDisconnected), new Transition(this.ActionRespondFaultedOrDisconnected, State.Disconnected));
 
-            this.transitionTable.Add(new Condition(State.Stopped, Input.RecorderPreviewingNoNextSchedule), new Transition(this.ActionRespondPreviewing, State.PreviewingNoNextSchedule));
-            this.transitionTable.Add(new Condition(State.Stopped, Input.RecorderPreviewingWithNextSchedule), new Transition(this.ActionRespondPreviewing, State.PreviewingWithNextSchedule));
-            this.transitionTable.Add(new Condition(State.Stopped, Input.RecorderRecording), new Transition(this.ActionRespondRecording, State.Recording));
-            this.transitionTable.Add(new Condition(State.Stopped, Input.RecorderStartedPotentialRecording), new Transition(this.ActionRespondPotentialRecording, State.PotentialRecording));
-            this.transitionTable.Add(new Condition(State.Stopped, Input.RecorderPaused), new Transition(this.ActionRespondPaused, State.Paused));
-            this.transitionTable.Add(new Condition(State.Stopped, Input.RecorderDormant), new Transition(this.ActionRespondDormant, State.Dormant));
-            this.transitionTable.Add(new Condition(State.Stopped, Input.RecorderFaulted), new Transition(this.ActionRespondFaultedOrDisconnected, State.Faulted));
-            this.transitionTable.Add(new Condition(State.Stopped, Input.RecorderDisconnected), new Transition(this.ActionRespondFaultedOrDisconnected, State.Disconnected));
+            this.transitionTable.Add(new Condition(State.StoppedNoNextSchedule, Input.RecorderPreviewingNoNextSchedule), new Transition(this.ActionRespondPreviewing, State.PreviewingNoNextSchedule));
+            this.transitionTable.Add(new Condition(State.StoppedNoNextSchedule, Input.RecorderPreviewingWithNextSchedule), new Transition(this.ActionRespondPreviewing, State.PreviewingWithNextSchedule));
+            this.transitionTable.Add(new Condition(State.StoppedNoNextSchedule, Input.RecorderRecording), new Transition(this.ActionRespondRecording, State.Recording));
+            this.transitionTable.Add(new Condition(State.StoppedNoNextSchedule, Input.RecorderStartedPotentialRecording), new Transition(this.ActionRespondPotentialRecording, State.PotentialRecording));
+            this.transitionTable.Add(new Condition(State.StoppedNoNextSchedule, Input.RecorderPaused), new Transition(this.ActionRespondPaused, State.Paused));
+            this.transitionTable.Add(new Condition(State.StoppedNoNextSchedule, Input.RecorderStoppedWithNextSchedule), new Transition(this.ActionRespondStopped, State.StoppedWithNextSchedule));
+            this.transitionTable.Add(new Condition(State.StoppedNoNextSchedule, Input.RecorderDormant), new Transition(this.ActionRespondDormant, State.Dormant));
+            this.transitionTable.Add(new Condition(State.StoppedNoNextSchedule, Input.RecorderFaulted), new Transition(this.ActionRespondFaultedOrDisconnected, State.Faulted));
+            this.transitionTable.Add(new Condition(State.StoppedNoNextSchedule, Input.RecorderDisconnected), new Transition(this.ActionRespondFaultedOrDisconnected, State.Disconnected));
+            this.transitionTable.Add(new Condition(State.StoppedNoNextSchedule, Input.ButtonHeld), new Transition(this.ActionRequestNewRecording, State.TransitionAnyToRecording));
+            this.transitionTable.Add(new Condition(State.StoppedNoNextSchedule, Input.CommandStart), new Transition(this.ActionRequestNewRecording, State.TransitionAnyToRecording));
+
+            this.transitionTable.Add(new Condition(State.StoppedWithNextSchedule, Input.RecorderPreviewingNoNextSchedule), new Transition(this.ActionRespondPreviewing, State.PreviewingNoNextSchedule));
+            this.transitionTable.Add(new Condition(State.StoppedWithNextSchedule, Input.RecorderPreviewingWithNextSchedule), new Transition(this.ActionRespondPreviewing, State.PreviewingWithNextSchedule));
+            this.transitionTable.Add(new Condition(State.StoppedWithNextSchedule, Input.RecorderRecording), new Transition(this.ActionRespondRecording, State.Recording));
+            this.transitionTable.Add(new Condition(State.StoppedWithNextSchedule, Input.RecorderStartedPotentialRecording), new Transition(this.ActionRespondPotentialRecording, State.PotentialRecording));
+            this.transitionTable.Add(new Condition(State.StoppedWithNextSchedule, Input.RecorderPaused), new Transition(this.ActionRespondPaused, State.Paused));
+            this.transitionTable.Add(new Condition(State.StoppedWithNextSchedule, Input.RecorderStoppedNoNextSchedule), new Transition(this.ActionRespondStopped, State.StoppedNoNextSchedule));
+            this.transitionTable.Add(new Condition(State.StoppedWithNextSchedule, Input.RecorderDormant), new Transition(this.ActionRespondDormant, State.Dormant));
+            this.transitionTable.Add(new Condition(State.StoppedWithNextSchedule, Input.RecorderFaulted), new Transition(this.ActionRespondFaultedOrDisconnected, State.Faulted));
+            this.transitionTable.Add(new Condition(State.StoppedWithNextSchedule, Input.RecorderDisconnected), new Transition(this.ActionRespondFaultedOrDisconnected, State.Disconnected));
+            this.transitionTable.Add(new Condition(State.StoppedWithNextSchedule, Input.ButtonPressed), new Transition(this.ActionRequestNextRecording, State.TransitionAnyToRecording));
+            this.transitionTable.Add(new Condition(State.StoppedWithNextSchedule, Input.ButtonHeld), new Transition(this.ActionRequestNextRecording, State.TransitionAnyToRecording));
+            this.transitionTable.Add(new Condition(State.StoppedWithNextSchedule, Input.CommandStart), new Transition(this.ActionRequestNextRecording, State.TransitionAnyToRecording));
 
             this.transitionTable.Add(new Condition(State.Dormant, Input.RecorderPreviewingNoNextSchedule), new Transition(this.ActionRespondPreviewing, State.PreviewingNoNextSchedule));
             this.transitionTable.Add(new Condition(State.Dormant, Input.RecorderPreviewingWithNextSchedule), new Transition(this.ActionRespondPreviewing, State.PreviewingWithNextSchedule));
             this.transitionTable.Add(new Condition(State.Dormant, Input.RecorderRecording), new Transition(this.ActionRespondRecording, State.Recording));
             this.transitionTable.Add(new Condition(State.Dormant, Input.RecorderStartedPotentialRecording), new Transition(this.ActionRespondPotentialRecording, State.PotentialRecording));
             this.transitionTable.Add(new Condition(State.Dormant, Input.RecorderPaused), new Transition(this.ActionRespondPaused, State.Paused));
-            this.transitionTable.Add(new Condition(State.Dormant, Input.RecorderStopped), new Transition(this.ActionRespondStopped, State.Stopped));
+            this.transitionTable.Add(new Condition(State.Dormant, Input.RecorderStoppedNoNextSchedule), new Transition(this.ActionRespondStopped, State.StoppedNoNextSchedule));
+            this.transitionTable.Add(new Condition(State.Dormant, Input.RecorderStoppedWithNextSchedule), new Transition(this.ActionRespondStopped, State.StoppedWithNextSchedule));
             this.transitionTable.Add(new Condition(State.Dormant, Input.RecorderFaulted), new Transition(this.ActionRespondFaultedOrDisconnected, State.Faulted));
             this.transitionTable.Add(new Condition(State.Dormant, Input.RecorderDisconnected), new Transition(this.ActionRespondFaultedOrDisconnected, State.Disconnected));
             
@@ -660,7 +687,8 @@ namespace RRLightProgram
             this.transitionTable.Add(new Condition(State.Faulted, Input.RecorderRecording), new Transition(this.ActionRespondRecording, State.Recording));
             this.transitionTable.Add(new Condition(State.Faulted, Input.RecorderStartedPotentialRecording), new Transition(this.ActionRespondPotentialRecording, State.PotentialRecording));
             this.transitionTable.Add(new Condition(State.Faulted, Input.RecorderPaused), new Transition(this.ActionRespondPaused, State.Paused));
-            this.transitionTable.Add(new Condition(State.Faulted, Input.RecorderStopped), new Transition(this.ActionRespondStopped, State.Stopped));
+            this.transitionTable.Add(new Condition(State.Faulted, Input.RecorderStoppedNoNextSchedule), new Transition(this.ActionRespondStopped, State.StoppedNoNextSchedule));
+            this.transitionTable.Add(new Condition(State.Faulted, Input.RecorderStoppedWithNextSchedule), new Transition(this.ActionRespondStopped, State.StoppedWithNextSchedule));
             this.transitionTable.Add(new Condition(State.Faulted, Input.RecorderDormant), new Transition(this.ActionRespondDormant, State.Dormant));
             this.transitionTable.Add(new Condition(State.Faulted, Input.RecorderDisconnected), new Transition(this.ActionRespondFaultedOrDisconnected, State.Disconnected));
 
@@ -669,7 +697,8 @@ namespace RRLightProgram
             this.transitionTable.Add(new Condition(State.Disconnected, Input.RecorderRecording), new Transition(this.ActionRespondRecording, State.Recording));
             this.transitionTable.Add(new Condition(State.Disconnected, Input.RecorderStartedPotentialRecording), new Transition(this.ActionRespondPotentialRecording, State.PotentialRecording));
             this.transitionTable.Add(new Condition(State.Disconnected, Input.RecorderPaused), new Transition(this.ActionRespondPaused, State.Paused));
-            this.transitionTable.Add(new Condition(State.Disconnected, Input.RecorderStopped), new Transition(this.ActionRespondStopped, State.Stopped));
+            this.transitionTable.Add(new Condition(State.Disconnected, Input.RecorderStoppedNoNextSchedule), new Transition(this.ActionRespondStopped, State.StoppedNoNextSchedule));
+            this.transitionTable.Add(new Condition(State.Disconnected, Input.RecorderStoppedWithNextSchedule), new Transition(this.ActionRespondStopped, State.StoppedWithNextSchedule));
             this.transitionTable.Add(new Condition(State.Disconnected, Input.RecorderDormant), new Transition(this.ActionRespondDormant, State.Dormant));
             this.transitionTable.Add(new Condition(State.Disconnected, Input.RecorderFaulted), new Transition(this.ActionRespondFaultedOrDisconnected, State.Faulted));
         }

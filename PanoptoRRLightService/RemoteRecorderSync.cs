@@ -472,10 +472,19 @@ namespace RRLightProgram
         /// </summary>
         private Input MapInputFrom(RemoteRecorderStatus state)
         {
+            Recording nextRecording;
             switch (state)
             {
                 case RemoteRecorderStatus.Stopped:
-                    return Input.RecorderStopped; 
+                    nextRecording = controller.GetNextRecording();
+                    if (nextRecording != null)
+                    {
+                        return Input.RecorderStoppedWithNextSchedule;
+                    }
+                    else
+                    {
+                        return Input.RecorderStoppedNoNextSchedule;
+                    }
 
                 case RemoteRecorderStatus.Recording:
                     if (Properties.Settings.Default.RequireOptInForRecording)
@@ -492,7 +501,7 @@ namespace RRLightProgram
                     return Input.RecorderDormant;
 
                 case RemoteRecorderStatus.Previewing:
-                    Recording nextRecording = controller.GetNextRecording();
+                    nextRecording = controller.GetNextRecording();
                     if (nextRecording != null)
                     {
                         return Input.RecorderPreviewingWithNextSchedule;
