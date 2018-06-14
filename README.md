@@ -18,8 +18,9 @@ limitations under the License.
 
 ## Code maintenance
 
-* All files except described below are written and maintained by Panopto.
+All files except described below are written and maintained by Panopto.
 * PanoptoRRLightService/Delcom/DelcomDLL.dll is provided and maintained by Delcom.
+* PanoptoRRLightService/Kuando/BusylightSDK.dll is provided and maintained by Plenom a/s.
 * Files in PanoptoRRLightService/SwivlChico are provided and maintained by Swivl.
     * Please contact Swivl support about Swivl device and the code specific to Swivl.
 * Files in PanoptoRRLightService/Serial are provided by the courtesy of University of Washington. See README.console.md for more informaiton.

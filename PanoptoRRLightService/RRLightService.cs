@@ -22,6 +22,7 @@ namespace RRLightProgram
         private DelcomLight delcomLight = null;
         private SwivlChicoLight chicoLight = null;
         private SerialComm serialComm = null;
+        private KuandoLight kuandoLight = null;
 
         /// <summary>
         /// Constrocutor.
@@ -54,7 +55,6 @@ namespace RRLightProgram
             this.stateMachine = new StateMachine();
 
             this.remoteRecorderSync = new RemoteRecorderSync((IStateMachine)this.stateMachine);
-
             if (string.Equals(Properties.Settings.Default.DeviceType, "Delcom", StringComparison.OrdinalIgnoreCase))
             {
                 // Set up of Delcom light (with button) device.
@@ -107,6 +107,20 @@ namespace RRLightProgram
                     throw new ApplicationException("Failed to start up Serial component. Terminate.");
                 }
             }
+            else if (string.Equals(Properties.Settings.Default.DeviceType, "Kuando", StringComparison.OrdinalIgnoreCase))
+            {
+                this.kuandoLight = new KuandoLight((IStateMachine)this.stateMachine);
+                lightControl = this.kuandoLight as ILightControl;
+
+                if (this.kuandoLight.Start())
+                {
+                    Trace.TraceInformation("Kuando Busylight service started");
+                }
+                else
+                {
+                    Trace.TraceError("Failed to start up Kuando component. Service continues to run without support for the device");
+                }
+            }
             // TODO: add here for device specific start up when another device type is added.
             else
             {
@@ -115,6 +129,7 @@ namespace RRLightProgram
 
             // Start processing of the state machine.
             this.stateMachine.Start(this.remoteRecorderSync, lightControl, resultReceiver);
+            Trace.TraceInformation("Started program");
         }
 
         /// <summary>
@@ -144,6 +159,12 @@ namespace RRLightProgram
             {
                 this.serialComm.Stop();
                 this.serialComm = null;
+            }
+
+            if (this.kuandoLight != null)
+            {
+                this.kuandoLight.Stop();
+                this.kuandoLight = null;
             }
 
             if (this.stateMachine != null)

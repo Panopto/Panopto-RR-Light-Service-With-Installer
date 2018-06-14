@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <Wix xmlns="http://schemas.microsoft.com/wix/2006/wi"
      xmlns:util="http://schemas.microsoft.com/wix/UtilExtension">
-  <Product Id="*" Name="Panopto RR Light Service" Language="1033" Version="2.4.2.0" Manufacturer="Panopto" UpgradeCode="48dc066c-97cc-4512-8fa3-52bbe195e075">
+  <Product Id="*" Name="Panopto RR Light Service" Language="1033" Version="2.5.0" Manufacturer="Panopto" UpgradeCode="48dc066c-97cc-4512-8fa3-52bbe195e075">
     <Package InstallerVersion="200" Compressed="yes" InstallScope="perMachine" />
 
     <!-- AllowSameVersionUpgrades is desired for development iteration. This causes ICE61 warning, but it may be ignored. -->
@@ -43,6 +43,9 @@
       </Component>
       <Component Id="chicntrl.dll" Guid="A6F8B4CC-7F61-49E3-831B-17A91B5D1ECF">
         <File Id="chicntrl.dll" Name="chicntrl.dll" Source="..\PanoptoRRLightService\bin\x86\Release\chicntrl.dll" Vital="yes" KeyPath="no" DiskId="1"/>
+      </Component>
+      <Component Id="BusylightSDK.dll" Guid="6DA9D0D5-8419-42CA-A586-A04B574D0FCF">
+        <File Id="BusylightSDK.dll" Name="BusylightSDK.dll" Source="..\PanoptoRRLightService\bin\x86\Release\BusylightSDk.dll" Vital="yes" KeyPath="no" DiskId="1"/>
       </Component>
       <Component Id="RRLightService.exe.config" Guid="6FB4306E-5C36-4A96-BF02-324AA4C5B694">
         <File Id="RRLightService.exe.config" Name="RRLightService.exe.config" Source="..\PanoptoRRLightService\bin\x86\Release\RRLightService.exe.config" Vital="yes" KeyPath="no" DiskId="1"/>

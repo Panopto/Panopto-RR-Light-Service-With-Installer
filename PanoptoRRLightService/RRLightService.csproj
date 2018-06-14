@@ -51,6 +51,10 @@
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
   </PropertyGroup>
   <ItemGroup>
+    <Reference Include="BusylightSDK, Version=3.0.0.6, Culture=neutral, PublicKeyToken=88732c0bc3658f90, processorArchitecture=MSIL">
+      <SpecificVersion>False</SpecificVersion>
+      <HintPath>Kuando\BusylightSDK.dll</HintPath>
+    </Reference>
     <Reference Include="RemoteRecorderAPI, Version=1.0.0.0, Culture=neutral, processorArchitecture=MSIL">
       <SpecificVersion>False</SpecificVersion>
       <HintPath>\\tfs\tfsbuilds\pre_prod_x86_Official\pre_prod_x86_Official_20151216.1\RemoteRecorderAPI.dll</HintPath>
@@ -74,6 +78,8 @@
     <Compile Include="IInputResultReceiver.cs" />
     <Compile Include="ILightControl.cs" />
     <Compile Include="IStateMachine.cs" />
+    <Compile Include="Kuando\KuandoLight.cs" />
+    <Compile Include="Kuando\KuandoLightWrapper.cs" />
     <Compile Include="ProjectInstaller.cs">
       <SubType>Component</SubType>
     </Compile>
@@ -148,6 +154,9 @@
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
       <TargetPath>chicntrl.dll</TargetPath>
     </ContentWithTargetPath>
+  </ItemGroup>
+  <ItemGroup>
+    <WCFMetadata Include="Service References\" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <PropertyGroup>

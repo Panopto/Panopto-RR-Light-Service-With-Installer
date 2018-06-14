@@ -9,6 +9,7 @@
         <ListItem Value="Delcom"/>
         <ListItem Value="SwivlChico"/>
         <ListItem Value="Serial"/>
+        <ListItem Value="Kuando"/>
       </ComboBox>
 
       <Dialog Id="CustomWelcomeDlg" Width="370" Height="270" Title="!(loc.WelcomeDlg_Title)">
