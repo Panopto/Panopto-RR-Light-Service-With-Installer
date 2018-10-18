@@ -143,18 +143,21 @@ namespace RRLightProgram
         {
             if (color == LightColor.Off)
             {
-                throw new ArgumentException("LightColor.Off is invalid");
+                SetSolid(LightColor.Off);
             }
-            LightControlRequest request = new LightControlRequest()
+            else
             {
-                Color = color,
-                Flash = true
-            };
-            lock (this.outstandingRequestLock)
-            {
-                outstandingRequest = request;
-                outstandingRequestExist.Set();
-                TraceVerbose.Trace("SetFlash({0}): request queued.", color);
+                LightControlRequest request = new LightControlRequest()
+                {
+                    Color = color,
+                    Flash = true
+                };
+                lock (this.outstandingRequestLock)
+                {
+                    outstandingRequest = request;
+                    outstandingRequestExist.Set();
+                    TraceVerbose.Trace("SetFlash({0}): request queued.", color);
+                }
             }
         }
 
@@ -221,9 +224,6 @@ namespace RRLightProgram
 
         /// <summary>
         /// Helper to convert our 'public-facing' color enum to the Delcom light.
-        /// Delcom light has two versions, one supports yellow nad the other suports blue.
-        /// Although Delcom document is vague, distributed DelcomDLL.h has only a single entry BLUELED = 2.
-        /// We observe that each device picks either blue or yellow for this value.
         /// </summary>
         /// <param name="inputColor"></param>
         /// <returns></returns>
@@ -241,7 +241,11 @@ namespace RRLightProgram
                     result = DelcomLightColor.Green;
                     break;
 
+                // Delcom light has two versions, one supports yellow nad the other suports blue.
+                // Although Delcom document is vague, distributed DelcomDLL.h has only a single entry BLUELED = 2.
+                // We observe that each device picks either blue or yellow for this value.
                 case LightColor.Yellow:
+                case LightColor.Blue:
                     result = DelcomLightColor.Blue;
                     break;
 

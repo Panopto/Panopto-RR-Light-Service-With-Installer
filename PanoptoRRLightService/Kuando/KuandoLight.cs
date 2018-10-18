@@ -174,6 +174,9 @@ namespace RRLightProgram
                 case LightColor.Yellow:
                     result = BusylightColor.Yellow;
                     break;
+                case LightColor.Blue:
+                    result = BusylightColor.Blue;
+                    break;
                 case LightColor.Off:
                     result = BusylightColor.Off;
                     break;
@@ -194,6 +197,12 @@ namespace RRLightProgram
         /// <param name="color">The color to flash on the light</param>
         public void SetFlash(LightColor color)
         {
+            if (color == LightColor.Off)
+            {
+                SetSolid(LightColor.Off);
+            }
+            else
+            {
             LightControlRequest request = new LightControlRequest()
             {
                 Color = color,
@@ -204,6 +213,7 @@ namespace RRLightProgram
                 outstandingRequest = request;
                 outstandingRequestExist.Set();
                 TraceVerbose.Trace("SetFlash({0}): request queued.", color);
+                }
             }
         }
 

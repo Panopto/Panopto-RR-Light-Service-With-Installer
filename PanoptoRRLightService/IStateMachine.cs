@@ -1,10 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-
-namespace RRLightProgram
+﻿namespace RRLightProgram
 {
     /// <summary>
     /// Interface that components may post the input to the state machine.
@@ -36,6 +30,7 @@ namespace RRLightProgram
         TransitionAnyToRecording,
         PotentialRecording,
         Recording,
+        RecordingWithinEndingWindow,
         TransitionRecordingToPause,
         TransitionPausedToRecording,
         Paused,
@@ -58,6 +53,7 @@ namespace RRLightProgram
         RecorderPreviewingNoNextSchedule,
         RecorderPreviewingWithNextSchedule,
         RecorderRecording,
+        RecorderRecordingEnteredEndingWindow,
         RecorderStartedPotentialRecording,
         RecorderPaused,
         RecorderStoppedNoNextSchedule,

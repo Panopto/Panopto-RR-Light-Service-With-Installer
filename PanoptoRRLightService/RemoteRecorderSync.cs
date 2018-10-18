@@ -1,11 +1,12 @@
-﻿using Panopto.RemoteRecorderAPI.V1;
-using System;
+﻿using System;
 using System.Diagnostics;
 using System.Linq;
 using System.Reflection;
 using System.ServiceModel;
 using System.ServiceProcess;
 using System.Threading;
+
+using Panopto.RemoteRecorderAPI.V1;
 
 namespace RRLightProgram
 {
@@ -439,6 +440,18 @@ namespace RRLightProgram
                 {
                     // Get the current state from the RR process
                     stateAsInput = MapInputFrom(this.controller.GetCurrentState().Status);
+
+                    if (stateAsInput == Input.RecorderRecording)
+                    {
+                        // If reamining time is within the window of ending warning, chagne the state to RecordingRecordingFinishWarningTriggered
+                        TimeSpan remainingTime = GetCurrentRecording().EndTime - DateTime.UtcNow;
+                        if (remainingTime < Properties.Settings.Default.RecordEndingWindowStart &&
+                            remainingTime > TimeSpan.Zero)
+                        {
+                            stateAsInput = Input.RecorderRecordingEnteredEndingWindow;
+                        }
+                    }
+                    
                 }
                 catch (Exception e)
                 {

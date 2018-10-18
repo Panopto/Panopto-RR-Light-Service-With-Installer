@@ -32,6 +32,5 @@ Installer is available from [release page]( https://github.com/Panopto/Panopto-R
 ## Build environment
 You may build the binary and installer from this source code with the following tools. If you need to create a new version, update the version number both in AssemblyInfo.cs and Product.wxs.
 
-* Visual Studio 2015
-* WiX Toolset 3.10
-* .NET framework 4.5
+* Visual Studio 2017
+* WiX Toolset 3.11

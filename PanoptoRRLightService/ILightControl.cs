@@ -1,10 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-
-namespace RRLightProgram
+﻿namespace RRLightProgram
 {
     /// <summary>
     /// Interface that light device logic must implement.
@@ -23,7 +17,7 @@ namespace RRLightProgram
         /// <summary>
         /// Direct to flash the light the specified color.
         /// </summary>
-        /// <param name="color">Color to be used. Cannot be Off.</param>
+        /// <param name="color">Color to be used. Off may be passed and the light should work as same as SetSolid.</param>
         void SetFlash(LightColor color);
     }
 
@@ -36,5 +30,6 @@ namespace RRLightProgram
         Red,
         Green,
         Yellow,
+        Blue,
     }
 }

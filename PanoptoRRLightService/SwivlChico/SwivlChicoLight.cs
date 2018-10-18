@@ -124,18 +124,21 @@ namespace RRLightProgram
         {
             if (color == LightColor.Off)
             {
-                throw new ArgumentException("LightColor.Off is invalid");
+                SetSolid(LightColor.Off);
             }
-            LightControlRequest request = new LightControlRequest()
+            else
             {
-                Color = color,
-                Flash = true
-            };
-            lock (this.outstandingRequestLock)
-            {
-                outstandingRequest = request;
-                outstandingRequestExist.Set();
-                TraceVerbose.Trace("SetFlash({0}): request queued.", color);
+                LightControlRequest request = new LightControlRequest()
+                {
+                    Color = color,
+                    Flash = true
+                };
+                lock (this.outstandingRequestLock)
+                {
+                    outstandingRequest = request;
+                    outstandingRequestExist.Set();
+                    TraceVerbose.Trace("SetFlash({0}): request queued.", color);
+                }
             }
         }
 
