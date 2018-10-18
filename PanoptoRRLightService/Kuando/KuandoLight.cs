@@ -107,7 +107,6 @@ namespace RRLightProgram
 
         #endregion
 
-
         #region Light Control Logic
 
         /// <summary>
@@ -203,16 +202,16 @@ namespace RRLightProgram
             }
             else
             {
-            LightControlRequest request = new LightControlRequest()
-            {
-                Color = color,
-                Flash = true
-            };
-            lock (this.outstandingRequestLock)
-            {
-                outstandingRequest = request;
-                outstandingRequestExist.Set();
-                TraceVerbose.Trace("SetFlash({0}): request queued.", color);
+                LightControlRequest request = new LightControlRequest()
+                {
+                    Color = color,
+                    Flash = true
+                };
+                lock (this.outstandingRequestLock)
+                {
+                    outstandingRequest = request;
+                    outstandingRequestExist.Set();
+                    TraceVerbose.Trace("SetFlash({0}): request queued.", color);
                 }
             }
         }
