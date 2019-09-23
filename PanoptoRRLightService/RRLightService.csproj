@@ -9,7 +9,7 @@
     <AppDesignerFolder>Properties</AppDesignerFolder>
     <RootNamespace>RRLightProgram</RootNamespace>
     <AssemblyName>RRLightService</AssemblyName>
-    <TargetFrameworkVersion>v4.5.2</TargetFrameworkVersion>
+    <TargetFrameworkVersion>v4.7.2</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
     <IsWebBootstrapper>false</IsWebBootstrapper>
     <PublishUrl>publish\</PublishUrl>
@@ -92,6 +92,7 @@
       <DesignTimeSharedInput>True</DesignTimeSharedInput>
       <DependentUpon>Settings.settings</DependentUpon>
     </Compile>
+    <Compile Include="RecorderAction.cs" />
     <Compile Include="RemoteRecorderSync.cs" />
     <Compile Include="RRLightService.cs">
       <SubType>Component</SubType>
@@ -107,13 +108,16 @@
     <Compile Include="SwivlChico\SwivlChicoDll.cs" />
     <Compile Include="SwivlChico\SwivlChicoLight.cs" />
     <Compile Include="TraceVerbose.cs" />
+    <Compile Include="UserSessionProxy.cs" />
+    <Compile Include="UserSessionProxyInterface.cs" />
+    <Compile Include="LightServiceUserTether.cs" />
   </ItemGroup>
   <ItemGroup>
     <None Include="App.config">
       <SubType>Designer</SubType>
     </None>
     <None Include="Properties\Settings.settings">
-      <Generator>SettingsSingleFileGenerator</Generator>
+      <Generator>PublicSettingsSingleFileGenerator</Generator>
       <LastGenOutput>Settings.Designer.cs</LastGenOutput>
       <SubType>Designer</SubType>
     </None>

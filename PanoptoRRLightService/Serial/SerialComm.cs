@@ -178,7 +178,7 @@ namespace RRLightProgram
         private void OutputStatus(string inputCommand)
         {
             var currentRecording = this.remoteRecorder.GetCurrentRecording();
-            var nextRecording = this.remoteRecorder.GetNextRecording();
+            var nextRecording = this.remoteRecorder.GetNextRecordingWithinRange();
 
             this.Output("Recorder-Status: " + this.stateMachine.GetCurrentState());
 

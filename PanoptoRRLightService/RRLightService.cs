@@ -3,6 +3,7 @@ using System.Diagnostics;
 using System.Net;
 using System.Security.Cryptography.X509Certificates;
 using System.ServiceProcess;
+using System.Threading;
 
 namespace RRLightProgram
 {
@@ -16,7 +17,7 @@ namespace RRLightProgram
         private static bool serverCertificateValidationCallbackIsSet = false;
 
         private StateMachine stateMachine = null;
-
+        private LightServiceTether lightServiceTether = null;
         private RemoteRecorderSync remoteRecorderSync = null;
 
         private DelcomLight delcomLight = null;
@@ -24,8 +25,12 @@ namespace RRLightProgram
         private SerialComm serialComm = null;
         private KuandoLight kuandoLight = null;
 
+        private Thread setupLightThread;
+        private CancellationTokenSource cts;
+        private readonly int closeWaitTime = Properties.Settings.Default.WaitTimeForClose;
+
         /// <summary>
-        /// Constrocutor.
+        /// Constructor.
         /// </summary>
         public RRLightService()
         {
@@ -49,86 +54,17 @@ namespace RRLightProgram
         {
             EnsureCertificateValidation();
 
-            ILightControl lightControl = null;
-            IInputResultReceiver resultReceiver = null;
-
             this.stateMachine = new StateMachine();
+            this.lightServiceTether = new LightServiceTether();
+            this.lightServiceTether.SetupUserTether();
 
-            this.remoteRecorderSync = new RemoteRecorderSync((IStateMachine)this.stateMachine);
-            if (string.Equals(Properties.Settings.Default.DeviceType, "Delcom", StringComparison.OrdinalIgnoreCase))
-            {
-                // Set up of Delcom light (with button) device.
-                this.delcomLight = new DelcomLight((IStateMachine)this.stateMachine);
-                lightControl = this.delcomLight as ILightControl;
+            // Find light and recorder in a seperate thread
+            // So that LS can start without a light or recorder detected
+            this.cts = new CancellationTokenSource();
+            
+            this.setupLightThread = new Thread(FindLight);
+            setupLightThread.Start();
 
-                if (this.delcomLight.Start())
-                {
-                    Trace.TraceInformation("Service started with Delcom light.");
-                }
-                else
-                {
-                    // It is desired to block starting the service, but that prevents the installer completes
-                    // when the device is not installed. (vital=yes causes failure, vital=no becomes hung.)
-                    // As a workaround, service continues to start, but with error log message.
-                    Trace.TraceError("Failed to start up Delcom Light component. Service continues to run, but the device is not recognized without restart of the service.");
-                    lightControl = null;
-                    this.delcomLight = null;
-                }
-            }
-            else if (string.Equals(Properties.Settings.Default.DeviceType, "SwivlChico", StringComparison.OrdinalIgnoreCase))
-            {
-                // Set up of SwivlChico light (with button) device.
-                this.chicoLight = new SwivlChicoLight((IStateMachine)this.stateMachine);
-                lightControl = this.chicoLight as ILightControl;
-
-                if (this.chicoLight.Start())
-                {
-                    Trace.TraceInformation("Service started with Swivl Chico.");
-                }
-                else
-                {
-                    // It is desired to block starting the service, but that prevents the installer completes
-                    // when the device is not installed. (vital=yes causes failure, vital=no becomes hung.)
-                    // As a workaround, service continues to start, but with error log message.
-                    Trace.TraceError("Failed to start up SwivlChico component. Service continues to run, but the device is not recognized without restart of the service.");
-                    lightControl = null;
-                    this.chicoLight = null;
-                }
-            }
-            else if (string.Equals(Properties.Settings.Default.DeviceType, "Serial", StringComparison.OrdinalIgnoreCase))
-            {
-                // Set up serial port
-                this.serialComm = new SerialComm((IStateMachine)this.stateMachine);
-                resultReceiver = this.serialComm as IInputResultReceiver;
-
-                if (!this.serialComm.Start(this.remoteRecorderSync))
-                {
-                    Trace.TraceError("Failed to start up Serial component. Terminate.");
-                    throw new ApplicationException("Failed to start up Serial component. Terminate.");
-                }
-            }
-            else if (string.Equals(Properties.Settings.Default.DeviceType, "Kuando", StringComparison.OrdinalIgnoreCase))
-            {
-                this.kuandoLight = new KuandoLight((IStateMachine)this.stateMachine);
-                lightControl = this.kuandoLight as ILightControl;
-
-                if (this.kuandoLight.Start())
-                {
-                    Trace.TraceInformation("Kuando Busylight service started");
-                }
-                else
-                {
-                    Trace.TraceError("Failed to start up Kuando component. Service continues to run without support for the device");
-                }
-            }
-            // TODO: add here for device specific start up when another device type is added.
-            else
-            {
-                throw new InvalidOperationException("Specified device type is not supported: " + Properties.Settings.Default.DeviceType);
-            }
-
-            // Start processing of the state machine.
-            this.stateMachine.Start(this.remoteRecorderSync, lightControl, resultReceiver);
             Trace.TraceInformation("Started program");
         }
 
@@ -137,6 +73,8 @@ namespace RRLightProgram
         /// </summary>
         protected override void OnStop()
         {
+            this.cts.Cancel();
+
             if (this.remoteRecorderSync != null)
             {
                 this.remoteRecorderSync.Stop();
@@ -172,6 +110,14 @@ namespace RRLightProgram
                 this.stateMachine.Stop();
                 this.stateMachine = null;
             }
+
+            this.lightServiceTether.StopUserTether();
+
+            // Try to close the thread for X seconds, else abort (X set in config)
+            if (!this.setupLightThread.Join(TimeSpan.FromSeconds(closeWaitTime)))
+            {
+                this.setupLightThread.Abort();
+            }
         }
 
         /// <summary>
@@ -192,6 +138,110 @@ namespace RRLightProgram
         private static bool CustomCertificateValidation(object sender, X509Certificate cert, X509Chain chain, System.Net.Security.SslPolicyErrors error)
         {
             return true;
+        }
+
+        private void FindLight()
+        {
+            ILightControl lightControl = null;
+            IInputResultReceiver resultReceiver = null;
+            CancellationToken token = this.cts.Token;
+
+            // 1 each 5 seconds -> 60 / 5 =  12 a minute -> 60 * 12 = 720 an hour
+            // Will log a warning every hour when a light couldn't be found
+            int numOfChecks = 720;
+
+            this.remoteRecorderSync = new RemoteRecorderSync((IStateMachine)this.stateMachine, this.lightServiceTether);
+
+            while (lightControl == null && !token.IsCancellationRequested)
+            {
+                if (string.Equals(Properties.Settings.Default.DeviceType, "Delcom", StringComparison.OrdinalIgnoreCase))
+                {
+                    // Set up of Delcom light (with button) device.
+                    this.delcomLight = new DelcomLight((IStateMachine)this.stateMachine);
+                    lightControl = this.delcomLight as ILightControl;
+
+                    if (this.delcomLight.Start())
+                    {
+                        Trace.TraceInformation("Service started with Delcom light.");
+                    }
+                    else
+                    {
+                        if (numOfChecks >= 720)
+                        {
+                            Trace.TraceWarning("Failed to start up Delcom component, will keep trying every 5 seconds");
+                            numOfChecks = 0;
+                        }
+                        lightControl = null;
+                        this.delcomLight = null;
+                    }
+                }
+                else if (string.Equals(Properties.Settings.Default.DeviceType, "SwivlChico", StringComparison.OrdinalIgnoreCase))
+                {
+                    // Set up of SwivlChico light (with button) device.
+                    this.chicoLight = new SwivlChicoLight((IStateMachine)this.stateMachine);
+                    lightControl = this.chicoLight as ILightControl;
+
+                    if (this.chicoLight.Start())
+                    {
+                        Trace.TraceInformation("Service started with Swivl Chico.");
+                    }
+                    else
+                    {
+                        if (numOfChecks >= 720)
+                        {
+                            Trace.TraceWarning("Failed to start up SwivlChico component, will keep trying every 5 seconds");
+                            numOfChecks = 0;
+                        }
+                        lightControl = null;
+                        this.chicoLight = null;
+                    }
+                }
+                else if (string.Equals(Properties.Settings.Default.DeviceType, "Serial", StringComparison.OrdinalIgnoreCase))
+                {
+                    // Set up serial port
+                    this.serialComm = new SerialComm((IStateMachine)this.stateMachine);
+                    resultReceiver = this.serialComm as IInputResultReceiver;
+
+                    if (!this.serialComm.Start(this.remoteRecorderSync))
+                    {
+                        Trace.TraceError("Failed to start up Serial component. Terminate.");
+                        throw new ApplicationException("Failed to start up Serial component. Terminate.");
+                    }
+                }
+                else if (string.Equals(Properties.Settings.Default.DeviceType, "Kuando", StringComparison.OrdinalIgnoreCase))
+                {
+                    this.kuandoLight = new KuandoLight((IStateMachine)this.stateMachine);
+                    lightControl = this.kuandoLight as ILightControl;
+
+                    if (this.kuandoLight.Start())
+                    {
+                        Trace.TraceInformation("Kuando Busylight service started");
+                    }
+                    else
+                    {
+                        if (numOfChecks >= 720)
+                        {
+                            Trace.TraceWarning("Failed to start up Kuando component, will keep trying every 5 seconds");
+                            numOfChecks = 0;
+                        }
+                        lightControl = null;
+                        this.kuandoLight = null;
+                    }
+                }
+                // TODO: add here for device specific start up when another device type is added.
+                else
+                {
+                    throw new InvalidOperationException("Specified device type is not supported: " + Properties.Settings.Default.DeviceType);
+                }
+                // Check every 5 seconds for light input
+                if (lightControl != null)
+                {
+                    Thread.Sleep(5000);
+                    numOfChecks++;
+                }
+            }
+            // Start processing of the state machine.
+            this.stateMachine.Start(this.remoteRecorderSync, lightControl, resultReceiver);
         }
     }
 }

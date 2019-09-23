@@ -25,6 +25,26 @@ namespace RRLightProgram
         private const string RemoteRecorderProcessName = "RemoteRecorder";
 
         /// <summary>
+        /// Process name of Windows Recorder application
+        /// </summary>
+        private const string WindowsRecorderProcessName = "Recorder";
+
+        /// <summary>
+        /// The sleep time (in seconds) for each loop of looking for windows recorder
+        /// </summary>
+        private readonly int RecorderInterval = Properties.Settings.Default.CheckIntervalForRecorder;
+
+        /// <summary>
+        /// Count the number of times the program has waited, so that we dont log spam
+        /// </summary> 
+        public int LogWaitingCount = 0;
+
+        /// <summary>
+        /// Running count of hours waited
+        /// </summary>
+        private int HoursWaited = 0;
+
+        /// <summary>
         /// Remote Recorder controller.
         /// </summary>
         private IRemoteRecorderController controller;
@@ -45,6 +65,13 @@ namespace RRLightProgram
         private ManualResetEvent stateMonitorThreadToStop;
 
         /// <summary>
+        /// Controls the connection to the user RRLightService process
+        /// </summary>
+        private LightServiceTether windowsTether;
+
+        public Boolean isRemoteRecorder;
+
+        /// <summary>
         /// Property to determine whether the current version of the remote recorder supports starting a new recording.
         /// </summary>
         public bool SupportsStartNewRecording { get; private set; }
@@ -58,9 +85,10 @@ namespace RRLightProgram
         /// </summary>
         /// <param name="stateMachine">Interface to the state machine.</param>
         /// <exception cref="TimeoutException">Thrown if failing to connect to Remote Recoder. Service may not run.</exception>
-        public RemoteRecorderSync(IStateMachine stateMachine)
+        public RemoteRecorderSync(IStateMachine stateMachine, LightServiceTether windowsTether)
         {
-            // This waits for RR to start.
+            // Connect to the WR or RR endpoint
+            this.windowsTether = windowsTether;
             this.SetUpController();
 
             this.stateMachine = stateMachine;
@@ -68,21 +96,22 @@ namespace RRLightProgram
             // Get the current remote recorder version number
             // This should succeed because SetUpController has confirmed the service is up.
             Process process = Process.GetProcessesByName(RemoteRecorderSync.RemoteRecorderProcessName).FirstOrDefault();
-            if (process == null)
+
+            // Check if the remote recorder exists on the computer
+            // If it does set it up, else skip and start the state machine
+            if (process != null)
             {
-                throw new ApplicationException("Remote recorder process is not running.");
-            }
-            
-            try
-            {
-                AssemblyName an = AssemblyName.GetAssemblyName(process.MainModule.FileName);
-                this.SupportsStartNewRecording = (an.Version.CompareTo(Version.Parse("5.0")) >= 0);
-            }
-            catch (System.ComponentModel.Win32Exception)
-            {
-                // This may happen if this service runs without admin privilege.
-                Trace.TraceInformation("Assembly information of Remote Recorder is not available. Assuming 5.0.0+.");
-                this.SupportsStartNewRecording = true;
+                try
+                {
+                    AssemblyName an = AssemblyName.GetAssemblyName(process.MainModule.FileName);
+                    this.SupportsStartNewRecording = (an.Version.CompareTo(Version.Parse("5.0")) >= 0);
+                }
+                catch (System.ComponentModel.Win32Exception)
+                {
+                    // This may happen if this service runs without admin privilege.
+                    Trace.TraceInformation("Assembly information of Remote Recorder is not available. Assuming 5.0.0+.");
+                    this.SupportsStartNewRecording = true;
+                }
             }
 
             // Start background thread to monitor the recorder state.
@@ -101,6 +130,20 @@ namespace RRLightProgram
         #endregion Initialization and Cleanup
 
         #region Public methods to take action against Remote Recorder
+        public void HandOffToWR()
+        {
+            isRemoteRecorder = false;
+            this.controller = this.windowsTether;
+        }
+
+        /// <summary>
+        /// Set controller to null, StateMonitorLoop() will kick off SetupController when
+        /// it detects controller is null
+        /// </summary>
+        public void ResetController()
+        {
+            this.controller = null;
+        }
 
         /// <summary>
         /// Stop the current recording
@@ -260,12 +303,10 @@ namespace RRLightProgram
 
             try
             {
-                Recording nextRecording = this.controller.GetNextRecording();
                 RemoteRecorderState state = this.controller.GetCurrentState();
 
                 if (state.Status != RemoteRecorderStatus.Recording &&
-                    state.CurrentRecording == null &&
-                    nextRecording == null)
+                    state.CurrentRecording == null)
                 {
                     result = this.controller.StartNewRecording(false);
 
@@ -335,16 +376,20 @@ namespace RRLightProgram
         }
 
         /// <summary>
-        /// Get next recording data
+        /// Gets the next recording within the range of both the controller GetNextRecording call
+        /// and the locally defined limit as per the GetNextRecordingTimeLimitOverride config
         /// </summary>
-        /// <returns>Recording object</returns>
-        public Recording GetNextRecording()
+        /// <returns>The upcoming recording or null if no recording is in range</returns>
+        public Recording GetNextRecordingWithinRange()
         {
             Recording recordingData = null;
             try
             {
                 recordingData = this.controller.GetNextRecording();
-
+                if (recordingData?.StartTime > DateTime.UtcNow + Properties.Settings.Default.GetNextRecordingTimeLimitOverride)
+                {
+                    recordingData = null;
+                }
             }
             catch (Exception e)
             {
@@ -359,42 +404,107 @@ namespace RRLightProgram
         #region Helper methods
 
         /// <summary>
-        /// Wait for the remote recorder service to start and creates channel for RR endpoint.
+        /// Returns true if the Windows Recorder is found
         /// </summary>
-        private void SetUpController()
+        /// <returns></returns>
+        public bool LookForWR()
         {
-            // Wait until RR service has started. Message every minute while waiting.
-            while (true)
+            Process[] process = Process.GetProcessesByName(RemoteRecorderSync.WindowsRecorderProcessName);
+
+            // Background processes have a SessionId of 0, so make sure it isn't a background process
+            if (process != null)
             {
-                try
+                foreach (Process proc in process)
                 {
-                    using (ServiceController serviceController = new ServiceController(RemoteRecorderServiceName))
+                    if (proc.SessionId != 0)
                     {
-                        serviceController.WaitForStatus(ServiceControllerStatus.Running, TimeSpan.FromSeconds(60.0));
-                        break;
+                        return true;
                     }
-                }
-                catch (System.TimeoutException)
-                {
-                    Trace.TraceInformation("RemoteRecorderSync: Waiting for the recorder to start up.");
-                }
-                catch (InvalidOperationException)
-                {
-                    // InvalidOperationException is not documented, but it is actually thrown immedately after the system boot.
-                    Trace.TraceInformation("RemoteRecorderSync: Service controller is not yet unavailable. Retry after 60 seconds.");
-                    Thread.Sleep(TimeSpan.FromSeconds(60.0));
                 }
             }
 
-            // ServiceController.WaitForStatus() may return before the service has completely started,
-            // so we have to give it a bit more time. Note that if this break isn't long enough,
-            // we'll hit an exception later and return to HandleRRException again, so it's safe.
-            Thread.Sleep(TimeSpan.FromSeconds(1.0));
+            return false;
+        }
 
-            ChannelFactory<IRemoteRecorderController> channelFactory = new ChannelFactory<IRemoteRecorderController>(
-                new NetNamedPipeBinding(),
-                new EndpointAddress(Panopto.RemoteRecorderAPI.V1.Constants.ControllerEndpoint));
-            this.controller = channelFactory.CreateChannel();
+        /// <summary>
+        /// Return true if the Remote Recorder is found and running
+        /// </summary>
+        /// <returns></returns>
+        public bool LookForRR()
+        {
+            try
+            {
+                using (ServiceController serviceController = new ServiceController(RemoteRecorderServiceName))
+                {
+                    if (serviceController.Status == ServiceControllerStatus.Running)
+                    {
+                        return true;
+                    }
+                    else
+                    {
+                        return false;
+                    }
+                }
+            }
+            catch (InvalidOperationException)
+            {
+                // RR is not found
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// Wait for the remote recorder service or windows recorder app to start and creates channel for endpoint.
+        /// If the RR and WR are running, the RR will initially connect, the code will detect it's in a dormant state
+        /// and it will handoff to the WR
+        /// </summary>
+        private void SetUpController()
+        {
+            // Hour calculator: (60 / seconds) * 60 -> simplified to: (3600 / seconds)
+            int hour = (3600 / RecorderInterval);
+
+            // We want to log the first message, so set it to the hour point to start
+            LogWaitingCount = hour;
+
+            // Wait until RR or WR service has started. Message every hour.
+            while (true)
+            {
+                if (LookForRR())
+                {
+                    isRemoteRecorder = true;
+                    break;
+                }
+                if (LookForWR())
+                {
+                    isRemoteRecorder = false;
+                    break;
+                }
+                Thread.Sleep(TimeSpan.FromSeconds(RecorderInterval));
+
+                // Print the log every hour, to avoid log spam
+                if (LogWaitingCount >= hour)
+                {
+                    Trace.TraceInformation("RemoteRecorderSync: RR and WR not found. Retrying every {0} seconds. " +
+                        "Have been looking for {1} hour(s)", RecorderInterval, HoursWaited);
+                    LogWaitingCount = 0;
+                    HoursWaited++;
+                }
+                LogWaitingCount++;
+            }
+
+            HoursWaited = 0;
+
+            if (isRemoteRecorder)
+            {
+                ChannelFactory<IRemoteRecorderController> channelFactory = new ChannelFactory<IRemoteRecorderController>(
+                    new NetNamedPipeBinding(),
+                    new EndpointAddress(Constants.ControllerEndpoint));
+                this.controller = channelFactory.CreateChannel();
+            }
+            else
+            {
+                this.controller = this.windowsTether;
+            }
         }
 
         /// <summary>
@@ -405,18 +515,18 @@ namespace RRLightProgram
         /// <param name="blockUntilRunning">True iff this should block current thread until RR service is running</param>
         private void HandleRRException(Exception e, bool blockUntilRunning)
         {
-            // EndpointNotFoundException raised if channel is created before RR service is running;
+            // EndpointNotFoundException raised if recorder is open but net.pipe communication is failing;
             // FaultException raised if RR service stops after channel is connected to it;
             // CommunicationException is raised after the channel is broken with some reason.
             if (blockUntilRunning && (e is EndpointNotFoundException || e is FaultException || e is CommunicationException))
             {
-                Trace.TraceWarning("Error calling remote recorder process. Reconnecting: {0}", e);
+                Trace.TraceWarning("Error calling remote or windows recorder process. Reconnecting to either recorder: {0}", e);
                 SetUpController();
             }
             else
             {
                 // Log and continue; problem could be temporary.
-                Trace.TraceError("Error calling remote recorder process: {0}", e);
+                Trace.TraceError("Error calling remote or windows recorder process: {0}", e);
             }
         }
 
@@ -434,11 +544,18 @@ namespace RRLightProgram
             // Loop with sleep (by the timeout of waiting for stop request)
             do
             {
+                // Reset the controller if it's null
+                if (this.controller == null)
+                {
+                    SetUpController();
+                }
+
                 Exception exceptionInRR = null;
                 Input stateAsInput;
+
                 try
                 {
-                    // Get the current state from the RR process
+                    // Get the current state from the RR or WR process
                     stateAsInput = MapInputFrom(this.controller.GetCurrentState().Status);
 
                     if (stateAsInput == Input.RecorderRecording)
@@ -455,7 +572,7 @@ namespace RRLightProgram
                 }
                 catch (Exception e)
                 {
-                    // If there's a problem with the RR, consider it disconnected and update the state machine.
+                    // If there's a problem with the recorder, consider it disconnected and update the state machine.
                     stateAsInput = MapInputFrom(RemoteRecorderStatus.Disconnected);
                     exceptionInRR = e;
                 }
@@ -473,7 +590,7 @@ namespace RRLightProgram
                 // Handle exception after the state machine has been updated
                 if (exceptionInRR != null)
                 {
-                    // Blocks while RR service is not running.
+                    // Blocks while recorder service is not running.
                     HandleRRException(exceptionInRR, blockUntilRunning: true);
                     exceptionInRR = null;
                 }
@@ -489,7 +606,7 @@ namespace RRLightProgram
             switch (state)
             {
                 case RemoteRecorderStatus.Stopped:
-                    nextRecording = controller.GetNextRecording();
+                    nextRecording = this.GetNextRecordingWithinRange();
                     if (nextRecording != null)
                     {
                         return Input.RecorderStoppedWithNextSchedule;
@@ -514,7 +631,7 @@ namespace RRLightProgram
                     return Input.RecorderDormant;
 
                 case RemoteRecorderStatus.Previewing:
-                    nextRecording = controller.GetNextRecording();
+                    nextRecording = this.GetNextRecordingWithinRange();
                     if (nextRecording != null)
                     {
                         return Input.RecorderPreviewingWithNextSchedule;

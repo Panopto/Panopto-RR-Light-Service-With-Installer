@@ -8,7 +8,7 @@
       <ComboBox Property="DEVICE_TYPE">
         <ListItem Value="Delcom"/>
         <ListItem Value="SwivlChico"/>
-        <ListItem Value="Serial"/>
+        <ListItem Value="Serial (not officially supported)"/>
         <ListItem Value="Kuando"/>
       </ComboBox>
 
@@ -35,7 +35,7 @@
           <Condition Action="show">NOT Installed OR NOT PATCH</Condition>
           <Condition Action="hide">Installed AND PATCH</Condition>
         </Control>
-        <Control Id="DeviceTypeList" Type="ComboBox" X="220" Y="178" Width="100" Height="25" Property="DEVICE_TYPE">
+        <Control Id="DeviceTypeList" Type="ComboBox" X="220" Y="178" Width="120" Height="25" Property="DEVICE_TYPE">
           <Condition Action="show">NOT Installed OR NOT PATCH</Condition>
           <Condition Action="hide">Installed AND PATCH</Condition>
         </Control>

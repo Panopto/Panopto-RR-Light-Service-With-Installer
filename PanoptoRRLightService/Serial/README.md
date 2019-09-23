@@ -1,4 +1,5 @@
-# Panopto Remote Recorder Light and Serial Service
+# [Unsupported] Panopto Remote Recorder Light and Serial Service
+This code is no longer supported.
 
 ## Serial Communication
 
