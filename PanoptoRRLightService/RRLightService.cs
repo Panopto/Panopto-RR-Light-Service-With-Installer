@@ -234,7 +234,7 @@ namespace RRLightProgram
                     throw new InvalidOperationException("Specified device type is not supported: " + Properties.Settings.Default.DeviceType);
                 }
                 // Check every 5 seconds for light input
-                if (lightControl != null)
+                if (lightControl == null)
                 {
                     Thread.Sleep(5000);
                     numOfChecks++;

@@ -15,11 +15,6 @@ namespace RRLightProgram
         #region Variables
 
         /// <summary>
-        /// Service name of Remote Recorder service. This is not Display Name, i.e. unique regardless of langauges.
-        /// </summary>
-        private const string RemoteRecorderServiceName = "PanoptoRemoteRecorderService";
-
-        /// <summary>
         /// Process name of Remote Recorder service.
         /// </summary>
         private const string RemoteRecorderProcessName = "RemoteRecorder";
@@ -432,25 +427,7 @@ namespace RRLightProgram
         /// <returns></returns>
         public bool LookForRR()
         {
-            try
-            {
-                using (ServiceController serviceController = new ServiceController(RemoteRecorderServiceName))
-                {
-                    if (serviceController.Status == ServiceControllerStatus.Running)
-                    {
-                        return true;
-                    }
-                    else
-                    {
-                        return false;
-                    }
-                }
-            }
-            catch (InvalidOperationException)
-            {
-                // RR is not found
-                return false;
-            }
+            return Process.GetProcessesByName(RemoteRecorderSync.RemoteRecorderProcessName).Any();
         }
 
         /// <summary>
