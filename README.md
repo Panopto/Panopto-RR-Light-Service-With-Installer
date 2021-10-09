@@ -10,10 +10,12 @@ Panopto provides the binary package of this application at [release page]( https
 ### Binary Package
 - Panopto provides direct support for the current version of the application for Delcom light devices and Kuando light devices based on the support contract. Please contact Panopto support through your organization's designated support contacts.
 - Swivl provides direct support for Swivl devices.Panopto provides the direct support for the current version of the application binary package for Delcom light devices and Kuando light devices based on the support contract. Please contact Panopto support through your organization's designated support contacts p
-- Serial device is not supported by anyone. Serial device code was originally made for Crestron device integration, but Crestron now provides the integration module which is *not* based on this code.
+- Serial device is not supported by anyone. Serial device code was originally made for Crestron device integration by a Panopto customer (not by Crestron), but Crestron now provides the integration module which is *not* based on this code.
 
 ### Code Level Support
 Panopto does not provide direct support for modifying this code. The customers may fork this repository and make changes. Customers are welcome to exchange ideas and technical details in the community.
+
+🛑 **Important Note**: The interface of **RemoteRecorderAPI.dll** is private and suject to change in the future version of the remote recorders. Panopto will update this service at that time, but that change may not keep the backward compatibility of DLL. Panopto recommends to avoid using this DLL outside of this code base.
 
 ## Code maintenance
 
