@@ -21,11 +21,13 @@ Global
 		{8C3D798C-B52C-4BF8-BB92-09D39BB4C20C}.Release|x86.ActiveCfg = Release|x86
 		{8C3D798C-B52C-4BF8-BB92-09D39BB4C20C}.Release|x86.Build.0 = Release|x86
 		{39F23985-023C-472E-A1D1-9D5908C14358}.Debug|x86.ActiveCfg = Debug|x86
-		{39F23985-023C-472E-A1D1-9D5908C14358}.Debug|x86.Build.0 = Debug|x86
 		{39F23985-023C-472E-A1D1-9D5908C14358}.Release|x86.ActiveCfg = Release|x86
 		{39F23985-023C-472E-A1D1-9D5908C14358}.Release|x86.Build.0 = Release|x86
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {01B0824D-EBF6-49B5-902E-D750276B05EE}
 	EndGlobalSection
 EndGlobal
