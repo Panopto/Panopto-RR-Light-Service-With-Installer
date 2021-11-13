@@ -1,9 +1,8 @@
 # Panopto Recorder Light Button Service
-This application enables showing recorder state on light devices (like Kuando Busylight or Delcom USB Visual Signal Indicator) and also enables basic start, stop and pause commands from these devices. The current version works with Panopto Remote recorder version 6 and above as well as Panopto for Windows version 7 and above.
-
+This application enables showing recorder state on light devices (like Kuando Busylight or Delcom USB Visual Signal Indicator) and also enables basic start, stop and pause commands from these devices. The current version works with Panopto Remote recorder version 9 and above on Windows 10.
 
 ## Product Release
-Panopto provides the binary package of this application at [release page]( https://github.com/Panopto/Panopto-RR-Light-Service-With-Installer/releases).
+Panopto provides the binary package of this application at [release page](https://github.com/Panopto/Panopto-RR-Light-Service-With-Installer/releases).
 
 ## Support
 
@@ -27,13 +26,12 @@ All files except described below are written and maintained by Panopto.
 * Files in PanoptoRRLightService/Serial were provided by the courtesy of University of Washington. Original author does not support this code. The code is kept in this repository for as-is reference purpose.
 
 ## Build environment
-You may build the binary and installer from this source code with the following tools. If you need to create a new version, update the version number both in AssemblyInfo.cs and Product.wxs.
+You may build the binary and installer from this source code by Visual Studio 2019 (as of version 3.1.0).
 
-* Visual Studio 2017
-* WiX Toolset 3.11
+If you need to create a new version, update the version number both in AssemblyInfo.cs and Product.wxs.
 
 ## License
-Copyright 2019 Panopto, Swivl, and University of Washington
+Copyright 2021 Panopto, Swivl, and University of Washington
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
