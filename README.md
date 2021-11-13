@@ -1,5 +1,5 @@
 # Panopto Recorder Light Button Service
-This application enables showing recorder state on light devices (like Kuando Busylight or Delcom USB Visual Signal Indicator) and also enables basic start, stop and pause commands from these devices. The current version works with Panopto Remote recorder version 9 and above on Windows 10.
+This application enables showing recorder state on light devices (like Kuando Busylight or Delcom USB Visual Signal Indicator) and also enables basic start, stop and pause commands from these devices. The current version works with Panopto Remote recorder and Panopto for Windows, both version 9 and above, running on Windows 10.
 
 ## Product Release
 Panopto provides the binary package of this application at [release page](https://github.com/Panopto/Panopto-RR-Light-Service-With-Installer/releases).
